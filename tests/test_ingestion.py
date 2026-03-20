@@ -53,17 +53,24 @@ def test_build_graph(tmp_path):
     (tmp_path / "node_modules" / "pkg.js").write_text("junk")
 
     mock_neo4j = MagicMock()
-    mock_neo4j.driver.session.return_value.__enter__ = MagicMock()
+    mock_session = MagicMock()
+    # session.run(...).single()["c"] must return 0 so the skip-check works
+    single_result = MagicMock()
+    single_result.__getitem__ = lambda self, key: 0
+    mock_session.run.return_value.single.return_value = single_result
+    mock_neo4j.driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
     mock_neo4j.driver.session.return_value.__exit__ = MagicMock(return_value=False)
 
     mock_nim = MagicMock()
     mock_nim.embed.return_value = [[0.1] * 1024]
 
-    build_graph(tmp_path, mock_neo4j, mock_nim)
+    mock_haiku = MagicMock()
+    mock_haiku.classify.return_value = '{}'
+
+    build_graph(tmp_path, mock_neo4j, mock_nim, mock_haiku)
 
     # Verify session was used to run Cypher
-    session = mock_neo4j.driver.session.return_value.__enter__.return_value
-    assert session.run.call_count >= 2  # At least repo + file + snippet nodes
+    assert mock_session.run.call_count >= 2  # At least repo + file + snippet nodes
 
 
 # --- US-012: Skill extraction ---

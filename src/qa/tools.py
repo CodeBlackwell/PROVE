@@ -7,7 +7,7 @@ MIN_SCORE = 0.3
 
 def search_code(query: str, neo4j_client: Neo4jClient, nim_client: NimClient) -> list[dict]:
     embedding = nim_client.embed([query], input_type="query")[0]
-    results = neo4j_client.vector_search(embedding, top_k=5)
+    results = neo4j_client.vector_search(embedding, top_k=10)
     return [
         {
             "file_path": r["props"].get("file_path", ""),
@@ -86,6 +86,36 @@ def _find_related_in_category(category: str, neo4j_client: Neo4jClient) -> list[
             cat=category,
         )
         return [r["name"] for r in result]
+
+
+def get_repo_overview(repo_name: str, neo4j_client: Neo4jClient) -> dict:
+    result = neo4j_client.get_repo_overview(repo_name)
+    if not result:
+        return {"error": f"Repository '{repo_name}' not found"}
+    return {
+        "name": result["name"],
+        "file_count": result["file_count"],
+        "sample_files": result["sample_files"],
+        "top_skills": result["top_skills"],
+    }
+
+
+def get_connected_evidence(skill_name: str, repo_name: str, neo4j_client: Neo4jClient) -> list[dict]:
+    snippets = neo4j_client.get_connected_snippets(skill_name, repo_name)
+    return [
+        {
+            "file_path": s["file_path"],
+            "snippet_name": s.get("snippet_name", ""),
+            "start_line": s["start_line"],
+            "end_line": s["end_line"],
+            "content": s["content"],
+            "proficiency": s["proficiency"],
+            "repo": repo_name,
+            "related_skills": s.get("related_skills", []),
+            "skill_name": skill_name,
+        }
+        for s in snippets
+    ]
 
 
 def search_resume(query: str, neo4j_client: Neo4jClient, nim_client: NimClient) -> list[dict]:

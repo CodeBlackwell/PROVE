@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 RESUME_PROMPT = (
@@ -27,6 +28,9 @@ def parse_resume(file_path, neo4j_client, nim_client):
     ])
     raw = response.choices[0].message.content.strip()
 
+    # Strip <think> blocks from reasoning models
+    raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+
     # Extract JSON from possible markdown code blocks
     if "```" in raw:
         raw = raw.split("```")[1]
@@ -36,11 +40,18 @@ def parse_resume(file_path, neo4j_client, nim_client):
 
     # Find JSON object boundaries if extra text surrounds it
     start = raw.find("{")
-    end = raw.rfind("}") + 1
-    if start >= 0 and end > start:
-        raw = raw[start:end]
-
-    data = json.loads(raw)
+    if start >= 0:
+        raw = raw[start:]
+    data = None
+    decoder = json.JSONDecoder()
+    try:
+        data, _ = decoder.raw_decode(raw)
+    except json.JSONDecodeError:
+        end = raw.rfind("}") + 1
+        if end > 0:
+            data = json.loads(raw[:end])
+    if data is None:
+        raise ValueError(f"Could not parse JSON from resume response: {raw[:200]}")
 
     with neo4j_client.driver.session() as session:
         name = data["name"]

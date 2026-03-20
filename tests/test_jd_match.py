@@ -61,7 +61,7 @@ def test_match_requirement():
     assert result.confidence == "Strong"
     assert len(result.evidence) == 3
     assert result.evidence[0]["file_path"] == "src/a.py"
-    nim.embed.assert_called_once_with(["Python async programming"])
+    nim.embed.assert_called_once_with(["Python async programming"], input_type="query")
     neo4j.vector_search.assert_called_once()
 
 

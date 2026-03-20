@@ -92,7 +92,7 @@ class Neo4jClient:
             "OPTIONAL MATCH (r:Repository)-[:CONTAINS]->(:File)-[:CONTAINS]->(c) "
             "RETURN properties(c) AS props, d.first_seen AS first_seen, "
             "d.last_seen AS last_seen, s.proficiency AS proficiency, r.name AS repo "
-            "LIMIT 5"
+            "LIMIT 10"
         )
         with self.driver.session() as session:
             result = session.run(query, name=skill_name)
@@ -114,6 +114,40 @@ class Neo4jClient:
         with self.driver.session() as session:
             result = session.run(query)
             return [dict(r) for r in result]
+
+    def get_repo_overview(self, repo_name: str) -> dict | None:
+        query = (
+            "MATCH (r:Repository {name: $name}) "
+            "OPTIONAL MATCH (r)-[:CONTAINS]->(f:File) "
+            "WITH r, collect(DISTINCT f.path) AS files "
+            "OPTIONAL MATCH (r)-[d:DEMONSTRATES]->(s:Skill) "
+            "WITH r, files, s, d ORDER BY d.snippet_count DESC "
+            "WITH r, files, "
+            "collect({skill: s.name, proficiency: s.proficiency, "
+            "snippet_count: d.snippet_count, total_lines: d.total_lines}) AS skills "
+            "RETURN r.name AS name, r.path AS path, "
+            "size(files) AS file_count, files[..20] AS sample_files, "
+            "skills[..10] AS top_skills"
+        )
+        with self.driver.session() as session:
+            record = session.run(query, name=repo_name).single()
+            return dict(record) if record else None
+
+    def get_connected_snippets(self, skill_name: str, repo_name: str) -> list[dict]:
+        query = (
+            "MATCH (r:Repository {name: $repo})-[:CONTAINS]->(f:File)"
+            "-[:CONTAINS]->(cs:CodeSnippet)-[:DEMONSTRATES]->(s:Skill {name: $skill}) "
+            "OPTIONAL MATCH (cs)-[:DEMONSTRATES]->(other:Skill) "
+            "WHERE other.name <> $skill "
+            "WITH f, cs, s, collect(DISTINCT other.name) AS related_skills "
+            "ORDER BY f.path, cs.start_line "
+            "RETURN f.path AS file_path, cs.name AS snippet_name, "
+            "cs.start_line AS start_line, cs.end_line AS end_line, "
+            "cs.content AS content, s.proficiency AS proficiency, related_skills "
+            "LIMIT 15"
+        )
+        with self.driver.session() as session:
+            return [dict(r) for r in session.run(query, skill=skill_name, repo=repo_name)]
 
     def close(self):
         self.driver.close()
