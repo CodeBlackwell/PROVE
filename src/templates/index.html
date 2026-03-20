@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ name }} — ShowMeOff</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="bamboo" style="left:3%"></div>
+  <div class="bamboo b2" style="left:5.5%"></div>
+  <div class="bamboo b3" style="left:1.5%"></div>
+  <header><h1>{{ name }}</h1></header>
+
+  <main>
+    <section id="chat-panel">
+      <div id="messages"></div>
+      <form id="chat-form">
+        <input type="text" id="chat-input" placeholder="Ask about skills, experience, code…" autocomplete="off">
+      </form>
+    </section>
+
+    <section id="graph-panel">
+      <div id="graph-container"></div>
+      <p class="graph-empty">Graph builds as you chat…</p>
+      <div class="legend">
+        <span><i class="dot" style="background:#6b8f9e"></i> Repository</span>
+        <span><i class="dot" style="background:#8b7355"></i> Domain</span>
+        <span><i class="dot" style="background:#b8805a"></i> Category</span>
+        <span><i class="dot" style="background:#7a8b6f"></i> Skill</span>
+        <span class="legend-note">Size = proficiency · Dashed = repo link</span>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js"></script>
+  <script src="/static/graph.js"></script>
+  <script src="/static/chat.js"></script>
+</body>
+</html>

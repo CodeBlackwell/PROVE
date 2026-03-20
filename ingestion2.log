@@ -1,0 +1,120 @@
+=== Ingestion restarted at Thu Mar 19 22:17:50 UTC 2026 ===
+Engineer: Unknown
+
+=== A.U.R.A-Avantlink_Universal_Reporting_Assistant ===
+  1 files total
+  Done: A.U.R.A-Avantlink_Universal_Reporting_Assistant
+
+=== Agent_Blackwell ===
+  67 files total
+  Done: Agent_Blackwell
+
+=== Architx ===
+  31 files total
+  Done: Architx
+
+=== C.R.A.C.K. ===
+  25 files processed
+  50 files processed
+  75 files processed
+  100 files processed
+  125 files processed
+  150 files processed
+  175 files processed
+  200 files processed
+  225 files processed
+  250 files processed
+  275 files processed
+  Rate limited (attempt 1/10), waiting 5s...
+  Rate limited (attempt 1/10), waiting 5s...
+  Rate limited (attempt 1/10), waiting 5s...
+  Rate limited (attempt 1/10), waiting 5s...
+  Rate limited (attempt 1/10), waiting 5s...
+  300 files processed
+  Rate limited (attempt 1/10), waiting 5s...
+  Rate limited (attempt 1/10), waiting 5s...
+  Rate limited (attempt 1/10), waiting 5s...
+  Rate limited (attempt 1/10), waiting 5s...
+  Rate limited (attempt 1/10), waiting 5s...
+  325 files processed
+  350 files processed
+  375 files processed
+  400 files processed
+  425 files processed
+  450 files processed
+  475 files processed
+  500 files processed
+  525 files processed
+  550 files processed
+  555 files total
+  Done: C.R.A.C.K.
+
+=== Flow-Ohana ===
+  50 files processed
+  75 files processed
+  100 files processed
+  125 files processed
+  150 files processed
+  175 files processed
+  200 files processed
+  225 files processed
+  250 files processed
+  263 files total
+  Done: Flow-Ohana
+
+=== POI_Alchemist ===
+  12 files total
+  Done: POI_Alchemist
+
+=== SPICE ===
+  25 files processed
+  50 files processed
+  75 files processed
+  100 files processed
+  125 files processed
+  150 files processed
+  175 files processed
+  200 files processed
+  225 files processed
+  250 files processed
+  275 files processed
+  300 files processed
+  325 files processed
+  350 files processed
+  375 files processed
+  400 files processed
+  425 files processed
+  450 files processed
+  475 files processed
+  500 files processed
+  525 files processed
+  550 files processed
+  575 files processed
+  600 files processed
+  625 files processed
+  650 files processed
+  675 files processed
+  700 files processed
+  725 files processed
+  750 files processed
+  775 files processed
+  777 files total
+  Done: SPICE
+
+=== d3_visualization_gallery ===
+  10 files total
+  Done: d3_visualization_gallery
+
+=== ALL DONE ===
+=== Ingestion finished at Fri Mar 20 00:14:49 UTC 2026 ===
+
+=== Verification ===
+Received notification from DBMS server: <GqlStatusObject gql_status='01N51', status_description='warn: relationship type does not exist. The relationship type `OWNS` does not exist. Verify that the spelling is correct.', position=<SummaryInputPosition line=1, column=13, offset=12>, raw_classification='UNRECOGNIZED', classification=<NotificationClassification.UNRECOGNIZED: 'UNRECOGNIZED'>, raw_severity='WARNING', severity=<NotificationSeverity.WARNING: 'WARNING'>, diagnostic_record={'_classification': 'UNRECOGNIZED', '_severity': 'WARNING', '_position': {'offset': 12, 'line': 1, 'column': 13}, 'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/'}> for query: 'MATCH ()-[o:OWNS]->() RETURN count(o) AS c'
+Repository: 8
+CodeSnippet: 22385
+Skill: 85
+Domain: 11
+Category: 28
+DEMONSTRATES edges: 36564
+OWNS edges: 0
+=== ALL DONE at Fri Mar 20 00:14:54 UTC 2026 ===

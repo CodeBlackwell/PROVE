@@ -4,11 +4,23 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     "neo4j",
-    "gradio",
+    "fastapi",
+    "uvicorn[standard]",
+    "jinja2",
     "openai",
+    "anthropic",
     "python-dotenv",
     "tree-sitter",
-    "pyvis",
     "pytest",
     "tqdm",
+    "pytest-timeout",
+    "pypdf",
+    "tree-sitter-python>=0.25.0",
+    "tree-sitter-javascript>=0.25.0",
+    "tree-sitter-typescript>=0.23.2",
+]
+
+[dependency-groups]
+dev = [
+    "playwright>=1.58.0",
 ]

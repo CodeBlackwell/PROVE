@@ -11,16 +11,9 @@ RESUME_PROMPT = (
 
 def _read_file(file_path: Path) -> str:
     if file_path.suffix.lower() == ".pdf":
-        import subprocess
-        result = subprocess.run(
-            ["python", "-c", f"import fitz; doc=fitz.open('{file_path}'); print('\\n'.join(p.get_text() for p in doc))"],
-            capture_output=True, text=True,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout
-        # Fallback: read raw bytes and extract text-like content
-        raw = file_path.read_bytes()
-        return raw.decode("utf-8", errors="ignore")
+        from pypdf import PdfReader
+        reader = PdfReader(file_path)
+        return "\n".join(page.extract_text() or "" for page in reader.pages)
     return file_path.read_text(encoding="utf-8", errors="replace")
 
 
@@ -40,6 +33,12 @@ def parse_resume(file_path, neo4j_client, nim_client):
         if raw.startswith("json"):
             raw = raw[4:]
         raw = raw.strip()
+
+    # Find JSON object boundaries if extra text surrounds it
+    start = raw.find("{")
+    end = raw.rfind("}") + 1
+    if start >= 0 and end > start:
+        raw = raw[start:end]
 
     data = json.loads(raw)
 
@@ -66,3 +65,5 @@ def parse_resume(file_path, neo4j_client, nim_client):
                 "MERGE (e)-[:CLAIMS]->(s)",
                 name=name, skill=skill,
             )
+
+    return name

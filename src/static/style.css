@@ -1,0 +1,221 @@
+:root {
+  --bg: #f5f0eb;
+  --surface: #faf7f2;
+  --ink: #2c2c2c;
+  --ink-light: #6b6560;
+  --ink-faint: #a8a099;
+  --accent: #8b7355;
+  --moss: #7a8b6f;
+  --clay: #b8805a;
+  --stone: #d4cdc4;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: "Noto Sans JP", -apple-system, sans-serif;
+  font-weight: 400;
+  line-height: 1.7;
+  color: var(--ink);
+  background: var(--bg);
+  overflow: hidden;
+  height: 100vh;
+}
+
+header {
+  padding: 1.5rem 2rem 0.5rem;
+}
+
+h1 {
+  font-weight: 300;
+  font-size: 1.3rem;
+  letter-spacing: 0.04em;
+}
+
+main {
+  display: flex;
+  height: calc(100vh - 4rem);
+  position: relative;
+  z-index: 1;
+}
+
+/* Chat panel */
+#chat-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.5rem;
+  overflow: hidden;
+}
+
+#messages {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 1rem;
+}
+
+.msg { margin-bottom: 1.2rem; max-width: 100%; }
+.msg-user { color: var(--ink); font-weight: 400; }
+.msg-user::before { content: "› "; color: var(--accent); }
+
+.msg-assistant {
+  color: var(--ink-light);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.msg-assistant code {
+  background: var(--surface);
+  padding: 0.1em 0.35em;
+  border-radius: 2px;
+  font-size: 0.88em;
+  color: var(--moss);
+}
+
+.msg-assistant pre {
+  background: var(--surface);
+  padding: 0.8rem 1rem;
+  margin: 0.5rem 0;
+  overflow-x: auto;
+  border-left: 2px solid var(--stone);
+  line-height: 1.5;
+}
+
+.msg-assistant pre code { background: none; padding: 0; color: var(--ink); }
+
+#chat-form {
+  border-top: 1px solid var(--stone);
+  padding-top: 1rem;
+  background: var(--bg);
+}
+
+#chat-input {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--stone);
+  background: transparent;
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--ink);
+  padding: 0.5rem 0;
+  outline: none;
+}
+
+#chat-input::placeholder { color: var(--ink-faint); }
+#chat-input:focus { border-bottom-color: var(--accent); }
+
+/* Loading dots */
+.loading span {
+  display: inline-block;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+  margin-right: 4px;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+.loading span:nth-child(2) { animation-delay: 0.2s; }
+.loading span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes pulse {
+  0%, 80%, 100% { opacity: 0.3; }
+  40% { opacity: 1; }
+}
+
+/* Graph panel */
+#graph-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--stone);
+  position: relative;
+}
+
+#graph-container { flex: 1; min-height: 0; }
+
+.graph-empty {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--ink-faint);
+  font-size: 0.95rem;
+}
+
+.legend {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.8rem 1rem;
+  font-size: 0.8rem;
+  color: var(--ink-light);
+}
+
+.dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-right: 3px;
+  vertical-align: middle;
+}
+
+.legend-note { color: var(--ink-faint); }
+
+/* Scenery */
+body::before {
+  content: "";
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 18vh;
+  background:
+    linear-gradient(135deg, transparent 40%, var(--stone) 40%, var(--stone) 41%, transparent 41%),
+    linear-gradient(160deg, transparent 55%, var(--stone) 55%),
+    linear-gradient(200deg, transparent 50%, var(--stone) 50%);
+  opacity: 0.12;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  top: 2rem; right: 4rem;
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  background: var(--stone);
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bamboo {
+  position: fixed;
+  bottom: 0;
+  width: 2px;
+  height: 35vh;
+  background: var(--moss);
+  opacity: 0.12;
+  pointer-events: none;
+  z-index: 0;
+  transform-origin: bottom center;
+  animation: sway 8s ease-in-out infinite;
+}
+.bamboo.b2 { height: 28vh; animation-delay: -2s; }
+.bamboo.b3 { height: 22vh; animation-delay: -5s; }
+
+@keyframes sway {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(1.5deg); }
+}
+
+.msg-assistant blockquote {
+  font-style: italic;
+  color: var(--ink-faint);
+  border-left: 2px solid var(--stone);
+  padding-left: 0.8rem;
+  margin: 0.3rem 0;
+}
+
+/* Markdown inline */
+.msg-assistant strong { color: var(--ink); font-weight: 400; }
+.msg-assistant em { font-style: italic; }

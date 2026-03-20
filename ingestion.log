@@ -1,0 +1,34 @@
+=== Step 3: migrate_skills.py started at Thu Mar 19 22:06:35 UTC 2026 ===
+Received notification from DBMS server: <GqlStatusObject gql_status='01N52', status_description='warn: property key does not exist. The property `content` does not exist. Verify that the spelling is correct.', position=<SummaryInputPosition line=1, column=106, offset=105>, raw_classification='UNRECOGNIZED', classification=<NotificationClassification.UNRECOGNIZED: 'UNRECOGNIZED'>, raw_severity='WARNING', severity=<NotificationSeverity.WARNING: 'WARNING'>, diagnostic_record={'_classification': 'UNRECOGNIZED', '_severity': 'WARNING', '_position': {'offset': 105, 'line': 1, 'column': 106}, 'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/'}> for query: 'MATCH (cs:CodeSnippet) WHERE NOT (cs)-[:DEMONSTRATES]->() RETURN cs.name AS name, cs.file_path AS fp, cs.content AS content, cs.start_line AS start, cs.end_line AS end_line'
+Received notification from DBMS server: <GqlStatusObject gql_status='01N51', status_description='warn: relationship type does not exist. The relationship type `DEMONSTRATES` does not exist. Verify that the spelling is correct.', position=<SummaryInputPosition line=1, column=41, offset=40>, raw_classification='UNRECOGNIZED', classification=<NotificationClassification.UNRECOGNIZED: 'UNRECOGNIZED'>, raw_severity='WARNING', severity=<NotificationSeverity.WARNING: 'WARNING'>, diagnostic_record={'_classification': 'UNRECOGNIZED', '_severity': 'WARNING', '_position': {'offset': 40, 'line': 1, 'column': 41}, 'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/'}> for query: 'MATCH (cs:CodeSnippet) WHERE NOT (cs)-[:DEMONSTRATES]->() RETURN cs.name AS name, cs.file_path AS fp, cs.content AS content, cs.start_line AS start, cs.end_line AS end_line'
+Received notification from DBMS server: <GqlStatusObject gql_status='01N52', status_description='warn: property key does not exist. The property `start_line` does not exist. Verify that the spelling is correct.', position=<SummaryInputPosition line=1, column=129, offset=128>, raw_classification='UNRECOGNIZED', classification=<NotificationClassification.UNRECOGNIZED: 'UNRECOGNIZED'>, raw_severity='WARNING', severity=<NotificationSeverity.WARNING: 'WARNING'>, diagnostic_record={'_classification': 'UNRECOGNIZED', '_severity': 'WARNING', '_position': {'offset': 128, 'line': 1, 'column': 129}, 'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/'}> for query: 'MATCH (cs:CodeSnippet) WHERE NOT (cs)-[:DEMONSTRATES]->() RETURN cs.name AS name, cs.file_path AS fp, cs.content AS content, cs.start_line AS start, cs.end_line AS end_line'
+Received notification from DBMS server: <GqlStatusObject gql_status='01N52', status_description='warn: property key does not exist. The property `file_path` does not exist. Verify that the spelling is correct.', position=<SummaryInputPosition line=1, column=86, offset=85>, raw_classification='UNRECOGNIZED', classification=<NotificationClassification.UNRECOGNIZED: 'UNRECOGNIZED'>, raw_severity='WARNING', severity=<NotificationSeverity.WARNING: 'WARNING'>, diagnostic_record={'_classification': 'UNRECOGNIZED', '_severity': 'WARNING', '_position': {'offset': 85, 'line': 1, 'column': 86}, 'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/'}> for query: 'MATCH (cs:CodeSnippet) WHERE NOT (cs)-[:DEMONSTRATES]->() RETURN cs.name AS name, cs.file_path AS fp, cs.content AS content, cs.start_line AS start, cs.end_line AS end_line'
+Received notification from DBMS server: <GqlStatusObject gql_status='01N52', status_description='warn: property key does not exist. The property `end_line` does not exist. Verify that the spelling is correct.', position=<SummaryInputPosition line=1, column=153, offset=152>, raw_classification='UNRECOGNIZED', classification=<NotificationClassification.UNRECOGNIZED: 'UNRECOGNIZED'>, raw_severity='WARNING', severity=<NotificationSeverity.WARNING: 'WARNING'>, diagnostic_record={'_classification': 'UNRECOGNIZED', '_severity': 'WARNING', '_position': {'offset': 152, 'line': 1, 'column': 153}, 'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/'}> for query: 'MATCH (cs:CodeSnippet) WHERE NOT (cs)-[:DEMONSTRATES]->() RETURN cs.name AS name, cs.file_path AS fp, cs.content AS content, cs.start_line AS start, cs.end_line AS end_line'
+Classifying 0 unclassified snippets...
+Nothing to migrate.
+=== Step 3 finished at Thu Mar 19 22:06:53 UTC 2026 ===
+
+=== Step 4: ingest_remaining.py started at Thu Mar 19 22:06:53 UTC 2026 ===
+Engineer: Unknown
+
+=== A.U.R.A-Avantlink_Universal_Reporting_Assistant ===
+Received notification from DBMS server: <GqlStatusObject gql_status='01N52', status_description='warn: property key does not exist. The property `file_path` does not exist. Verify that the spelling is correct.', position=<SummaryInputPosition line=1, column=24, offset=23>, raw_classification='UNRECOGNIZED', classification=<NotificationClassification.UNRECOGNIZED: 'UNRECOGNIZED'>, raw_severity='WARNING', severity=<NotificationSeverity.WARNING: 'WARNING'>, diagnostic_record={'_classification': 'UNRECOGNIZED', '_severity': 'WARNING', '_position': {'offset': 23, 'line': 1, 'column': 24}, 'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/'}> for query: 'MATCH (cs:CodeSnippet {file_path: $fp}) WHERE cs.embedding IS NOT NULL RETURN count(cs) AS c'
+  1 files total
+  Done: A.U.R.A-Avantlink_Universal_Reporting_Assistant
+
+=== Agent_Blackwell ===
+  25 files processed
+  50 files processed
+  67 files total
+  Done: Agent_Blackwell
+
+=== Architx ===
+  25 files processed
+  31 files total
+  Done: Architx
+
+=== C.R.A.C.K. ===
+  Error: Error code: 429 - {'type': 'error', 'error': {'type': 'rate_limit_error', 'message': "This request would exceed your organization's rate limit of 50,000 input tokens per minute (org: 27acf86d-74c1-4f72-9b79-d28e384b911c, model: claude-haiku-4-5-20251001). For details, refer to: https://docs.claude.com/en/api/rate-limits. You can see the response headers for current usage. Please reduce the prompt length or the maximum tokens requested, or try again later. You may also contact sales at https://claude.com/contact-sales to discuss your options for a rate limit increase."}, 'request_id': 'req_011CZDCx4gAnBnMqc2pYaJW6'}
+
+=== Flow-Ohana ===
+  25 files processed

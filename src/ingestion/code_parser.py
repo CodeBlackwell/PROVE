@@ -38,21 +38,28 @@ def _extract_name(node) -> str:
     return name_node.text.decode() if name_node else "<anonymous>"
 
 
+def _walk_nodes(node, types):
+    """Recursively yield all nodes matching the given types."""
+    if node.type in types:
+        yield node
+    for child in node.children:
+        yield from _walk_nodes(child, types)
+
+
 def _parse_with_treesitter(source: bytes, lang: Language, suffix: str, file_path: str) -> list[CodeChunk]:
     parser = Parser(lang)
     tree = parser.parse(source)
     node_types = EXTRACTABLE_TYPES[suffix]
     chunks = []
-    for child in tree.root_node.children:
-        if child.type in node_types:
-            chunks.append(CodeChunk(
-                content=child.text.decode(),
-                file_path=file_path,
-                start_line=child.start_point[0] + 1,
-                end_line=child.end_point[0] + 1,
-                language=suffix.lstrip("."),
-                name=_extract_name(child),
-            ))
+    for node in _walk_nodes(tree.root_node, node_types):
+        chunks.append(CodeChunk(
+            content=node.text.decode(),
+            file_path=file_path,
+            start_line=node.start_point[0] + 1,
+            end_line=node.end_point[0] + 1,
+            language=suffix.lstrip("."),
+            name=_extract_name(node),
+        ))
     return chunks
 
 
