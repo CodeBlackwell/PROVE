@@ -185,48 +185,34 @@ function _ghUrl(repo, path, line) {
 
 function _renderResults(el, data) {
   const pct = Math.round(data.match_percentage);
-  const strong = data.requirements.filter(r => r.confidence === 'Strong').length;
-  const partial = data.requirements.filter(r => r.confidence === 'Partial').length;
-  const none = data.requirements.filter(r => r.confidence === 'None').length;
-  const total = data.requirements.length;
 
   let html =
     '<div class="jd-results__header">' +
       '<div class="jd-results__pct">' + pct + '%</div>' +
       '<div class="jd-results__label">Match</div>' +
     '</div>' +
-    '<p class="jd-results__summary">' + data.summary + '</p>';
+    '<p class="jd-results__summary">' + data.summary + '</p>' +
+    '<div class="jd-results__reqs">';
 
-  // Accordion: requirements breakdown
-  html +=
-    '<button class="jd-accordion" id="jd-acc-reqs">' +
-      '<span class="jd-accordion__title">Requirements</span>' +
-      '<span class="jd-accordion__meta">' +
-        (strong ? '<span class="jd-conf jd-conf--strong">' + strong + ' strong</span> ' : '') +
-        (partial ? '<span class="jd-conf jd-conf--partial">' + partial + ' partial</span> ' : '') +
-        (none ? '<span class="jd-conf jd-conf--none">' + none + ' gap</span>' : '') +
-      '</span>' +
-      '<span class="jd-accordion__arrow">\u25B8</span>' +
-    '</button>' +
-    '<div class="jd-accordion__body" id="jd-acc-reqs-body" hidden>' +
-      '<div class="jd-results__reqs">';
-
-  for (let i = 0; i < total; i++) {
+  for (let i = 0; i < data.requirements.length; i++) {
     const r = data.requirements[i];
     const cls = CONF_CLASS[r.confidence] || CONF_CLASS.None;
     const hasEvidence = r.evidence && r.evidence.length > 0;
+    const snippetLabel = hasEvidence
+      ? r.evidence.length + ' snippet' + (r.evidence.length !== 1 ? 's' : '')
+      : '';
+
+    // Each requirement is its own accordion
     html +=
-      '<div class="jd-req">' +
-        '<div class="jd-req__row">' +
-          '<span class="jd-req__name">' + r.requirement + '</span>' +
-          '<span class="jd-conf ' + cls + '">' + r.confidence + '</span>' +
-          (hasEvidence
-            ? '<button class="jd-req__toggle" data-idx="' + i + '">' + r.evidence.length + ' snippet' + (r.evidence.length !== 1 ? 's' : '') + '</button>'
-            : '') +
-        '</div>';
+      '<button class="jd-req-acc" data-idx="' + i + '">' +
+        '<span class="jd-req-acc__arrow">\u25B8</span>' +
+        '<span class="jd-req-acc__name">' + r.requirement + '</span>' +
+        '<span class="jd-conf ' + cls + '">' + r.confidence + '</span>' +
+        (snippetLabel ? '<span class="jd-req-acc__count">' + snippetLabel + '</span>' : '') +
+      '</button>';
 
     if (hasEvidence) {
-      html += '<div class="jd-evidence" id="jd-ev-' + i + '" hidden>';
+      html += '<div class="jd-req-acc__body" id="jd-ev-' + i + '" hidden>';
       for (const e of r.evidence) {
         const url = e.repo ? _ghUrl(e.repo, e.path, e.start_line) : '#';
         const shortPath = e.path ? e.path.split('/').pop() : '';
@@ -244,29 +230,19 @@ function _renderResults(el, data) {
       }
       html += '</div>';
     }
-
-    html += '</div>';
   }
 
-  html += '</div></div>';
+  html += '</div>';
   el.innerHTML = html;
 
-  // Accordion toggle
-  el.querySelector('#jd-acc-reqs').addEventListener('click', () => {
-    const body = el.querySelector('#jd-acc-reqs-body');
-    const btn = el.querySelector('#jd-acc-reqs');
-    const open = !body.hidden;
-    body.hidden = open;
-    btn.classList.toggle('jd-accordion--open', !open);
-  });
-
-  // Evidence toggles
-  el.querySelectorAll('.jd-req__toggle').forEach(btn => {
+  // Each requirement row toggles its own evidence
+  el.querySelectorAll('.jd-req-acc').forEach(btn => {
     btn.addEventListener('click', () => {
       const panel = el.querySelector('#jd-ev-' + btn.dataset.idx);
+      if (!panel) return;
       const open = !panel.hidden;
       panel.hidden = open;
-      btn.classList.toggle('jd-req__toggle--open', !open);
+      btn.classList.toggle('jd-req-acc--open', !open);
     });
   });
 }
