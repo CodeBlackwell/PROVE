@@ -18,9 +18,14 @@ uv run pytest tests/test_qa.py::test_react_loop -v  # Run single test
 uv run python -m src.ingestion.cli --resume path/to/resume.pdf --repos https://github.com/user/repo
 uv run python -m src.ingestion.cli --resume path/to/resume.pdf --github-user username
 
-# Re-embed (generates LLM context descriptions + embeddings, idempotent)
-uv run python scripts/reembed.py                              # default providers
-EMBED_PROVIDER=voyage CHAT_PROVIDER=anthropic uv run python scripts/reembed.py  # Anthropic stack
+# Re-embed (context generation + embeddings, idempotent, all providers in parallel)
+uv run python scripts/reembed.py                        # auto-detects: nim + voyage if keys set
+uv run python scripts/reembed.py --providers voyage      # just voyage
+uv run python scripts/reembed.py --providers nim voyage   # explicit both
+
+# Provider overrides
+CHAT_PROVIDER=anthropic EMBED_PROVIDER=voyage just dev    # Anthropic pipeline
+LOG_LEVEL=DEBUG just dev                                  # Verbose logging
 ```
 
 ## Architecture
@@ -35,7 +40,7 @@ EMBED_PROVIDER=voyage CHAT_PROVIDER=anthropic uv run python scripts/reembed.py  
 | Embeddings | EmbedQA 1B | Voyage-3.5 |
 | Ingestion chat (classify, parse) | Sonnet → fallback Nemotron | Claude Sonnet |
 
-**All chat clients share the same interface:** `.chat(messages, tools=None)` returning OpenAI-shaped `SimpleNamespace` with `.choices[0].message.content` and `.tool_calls`. `ClaudeChatClient` adapts Anthropic's format internally.
+**All chat clients share the same interface:** `.chat(messages, tools=None, purpose="")` returning OpenAI-shaped `SimpleNamespace` with `.choices[0].message.content` and `.tool_calls`. `ClaudeChatClient` adapts Anthropic's format internally. The `purpose` kwarg is for logger tagging — clients that don't support it ignore it via `**kwargs`.
 
 ### Ingestion Pipeline
 
@@ -70,13 +75,26 @@ The stored `context` field flows through the entire query path — tool results 
 
 `JDMatchAgent` extracts requirements from job description text, embeds each requirement for vector search, computes per-requirement confidence (Strong/Partial/None) boosted by proficiency, then summarizes.
 
+### Structured Logger
+
+`src/core/logger.py` provides structured logging with session auditing:
+
+- **Session context** via `ContextVar` — each request gets a `session_id` with accumulated cost, tokens, latency
+- **Cost estimation** from per-model pricing tables
+- **Two outputs**: colored console + JSON lines at `logs/app.jsonl`
+- **Log levels**: `DEBUG` (raw payloads, tool results), `INFO` (LLM calls, sessions, tools), `WARNING` (retries, fallbacks), `ERROR` (API failures)
+- All clients log automatically — `log_llm_call()`, `log_embed_call()`, `log_tool_call()` etc.
+- Use `logger.start_session()` / `logger.end_session()` to wrap request handlers
+- Import as `from src.core import logger` then call `logger.info("event.name", key=value)`
+
 ## Key Conventions
 
 - **Client params are split:** `chat_client` for LLM calls, `embed_client` for embeddings. Never pass a single "nim_client" for both.
 - **`ingestion_chat_client`** prefers Anthropic (Sonnet) when `ANTHROPIC_API_KEY` is set, falls back to NIM. This is separate from `chat_client` which follows `CHAT_PROVIDER`.
 - **Concurrency is provider-aware:** `ClaudeChatClient` gets higher thread pools (4-8 workers) vs NIM (2 workers) because of rate limit differences.
 - **Embeddings are provider-namespaced:** Neo4j stores `embedding_nim` and `embedding_voyage` as separate properties with separate vector indices. Switching `EMBED_PROVIDER` requires running `reembed.py`.
-- **`reembed.py` is two-phase:** Phase 1 generates `context` (LLM, concurrent, persisted per-batch for resumability). Phase 2 embeds (context + preamble + code). Phase 1 is skipped if contexts already exist.
+- **No embedding without context:** `reembed.py` only embeds snippets that have an LLM-generated `context` field. Phase 1 generates missing contexts, Phase 2 embeds in parallel across providers.
+- **No print statements:** All output goes through `src/core/logger`. Use `logger.info()`, `logger.warning()`, etc.
 
 ## Environment Variables
 
@@ -91,3 +109,4 @@ The stored `context` field flows through the entire query path — tool results 
 | `NEO4J_URI` | `bolt://localhost:7687` | |
 | `NEO4J_PASSWORD` | `showmeoff` | |
 | `GITHUB_TOKEN` | — | For private repo access |
+| `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
