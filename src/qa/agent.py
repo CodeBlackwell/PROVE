@@ -24,16 +24,37 @@ SYSTEM_PROMPT_TEMPLATE = (
     "- For gap analysis, use find_gaps.\n"
     "- Prefer skills with 'extensive' proficiency and high evidence counts.\n"
     "- Always make at least 2 tool calls before answering.\n\n"
-    "ANSWER FORMAT: Write a 2-3 sentence high-level assessment only. "
-    "Do NOT discuss individual files, code details, or list bullet points — "
-    "a detailed evidence section with annotated code snippets is appended automatically. "
-    "Focus on overall proficiency, skill breadth, and a brief summary. "
+    "ANSWER FORMAT (STRICT):\n"
+    "Write EXACTLY 2-3 short sentences. Name specific repos. No bullet points, no headers, "
+    "no code, no lists, no categories, no subsections. Never write the engineer's name in ALL CAPS. "
+    "A curated evidence section is appended automatically — do NOT preview or summarize it. "
+    "Your ONLY job: a brief narrative of what was built and where. "
     "If no evidence exists, say so."
 )
 
 
 def _strip_think(text: str) -> str:
     return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+
+
+def _trim_answer(text: str, max_sentences: int = 4) -> str:
+    """Trim verbose LLM answers to the first paragraph or max_sentences.
+
+    If the LLM ignores the brevity instruction and produces headers, bullets,
+    or multiple paragraphs, keep only the opening narrative.
+    """
+    if not text:
+        return text
+    # If it contains markdown headers or bullet lists, take only the first paragraph
+    if "\n#" in text or "\n-" in text or "\n*" in text:
+        first_para = text.split("\n\n")[0].strip()
+        if len(first_para) > 50:
+            return first_para
+    # Otherwise cap by sentence count
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+    if len(sentences) > max_sentences:
+        return " ".join(sentences[:max_sentences])
+    return text
 
 
 def _compute_confidence(evidence: list[dict]) -> str:
@@ -57,10 +78,43 @@ PROFICIENCY_WEIGHT = {"extensive": 3, "moderate": 2, "minimal": 1, "none": 0}
 
 
 def _sort_evidence(evidence: list[dict]) -> list[dict]:
-    return sorted(evidence, key=lambda e: (
+    """Sort evidence by quality, then diversify across repos and files.
+
+    First ranks by proficiency + score, deduplicates by file path (keeps
+    best per file), then interleaves results from different repos so the
+    curator sees variety rather than 20 snippets from the same skill.
+    """
+    ranked = sorted(evidence, key=lambda e: (
         PROFICIENCY_WEIGHT.get(e.get("proficiency", ""), 0),
         e.get("score", 0),
     ), reverse=True)
+
+    # Deduplicate by file — keep best snippet per file
+    seen_files: set[str] = set()
+    deduped = []
+    for e in ranked:
+        fp = e.get("file_path", "")
+        if fp not in seen_files:
+            seen_files.add(fp)
+            deduped.append(e)
+
+    # Interleave by repo to ensure diversity
+    by_repo: dict[str, list[dict]] = {}
+    for e in deduped:
+        by_repo.setdefault(e.get("repo", "unknown"), []).append(e)
+
+    diversified = []
+    queues = list(by_repo.values())
+    idx = 0
+    while queues:
+        queue = queues[idx % len(queues)]
+        diversified.append(queue.pop(0))
+        if not queue:
+            queues.remove(queue)
+        else:
+            idx += 1
+
+    return diversified
 
 
 TOOL_DEFINITIONS = [
@@ -192,15 +246,16 @@ ANNOTATE_PROMPT = (
 CURATE_PROMPT = (
     "You are selecting the most IMPRESSIVE code evidence for a software portfolio.\n"
     "You will receive a question and numbered code snippets with metadata.\n\n"
-    "For each snippet, decide:\n"
-    "1. KEEP or DROP. Drop trivial code (simple getters, config, boilerplate, imports, "
-    "basic CRUD, dict lookups, string formatting). Keep code showing real engineering "
-    "(algorithms, orchestration, error handling, complex integrations, novel patterns).\n"
-    "2. For each KEEP, assign a display mode:\n"
-    "   - 'inline': The snippet is self-contained and impressive on its own. Show the code.\n"
-    "   - 'link': The snippet is part of a larger system. Provide a GitHub link "
-    "with an architectural explanation of how it fits the bigger picture.\n"
-    "3. For each KEEP, write 1-2 sentences explaining WHY it is impressive, "
+    "RULES:\n"
+    "1. KEEP at least 3 snippets. Prefer diversity across different repos — "
+    "showing range is more impressive than depth in one project.\n"
+    "2. DROP only truly trivial code (simple getters, one-line configs, bare imports). "
+    "When in doubt, KEEP.\n"
+    "3. For each KEEP, assign a display mode:\n"
+    "   - 'inline': Show the code — it is self-contained and impressive on its own.\n"
+    "   - 'link': The snippet is part of a larger system — provide an architectural "
+    "explanation of how it fits the bigger picture.\n"
+    "4. For each KEEP, write 1-2 sentences explaining WHY it is impressive, "
     "not just what it does.\n\n"
     "Reply ONLY with a JSON array. Each element:\n"
     '{{"index": 0, "action": "keep", "mode": "inline", "explanation": "..."}}\n'
@@ -411,7 +466,7 @@ class QAAgent:
                 logger.info("agent.react_done", step=step + 1, reason="final_answer")
                 sorted_ev = _sort_evidence(all_evidence)
                 curated, curation_meta = self._curate_evidence(question, sorted_ev)
-                return format_response(_strip_think(choice.message.content or ""), curated, curation=curation_meta, total_count=len(all_evidence))
+                return format_response(_trim_answer(_strip_think(choice.message.content or "")), curated, curation=curation_meta, total_count=len(all_evidence))
             messages.append(self._assistant_msg(choice))
             for tc in choice.message.tool_calls:
                 result = self._execute_tool(tc.function.name, json.loads(tc.function.arguments))
@@ -429,7 +484,7 @@ class QAAgent:
         logger.log_evidence(collected=len(all_evidence),
                             unique_repos=len(repos), unique_skills=len(skills))
 
-        return format_response(_strip_think(response.choices[0].message.content or ""), curated, curation=curation_meta, total_count=len(all_evidence))
+        return format_response(_trim_answer(_strip_think(response.choices[0].message.content or "")), curated, curation=curation_meta, total_count=len(all_evidence))
 
     def answer_stream(self, question: str) -> Generator[str | dict, None, None]:
         messages = [
@@ -474,4 +529,4 @@ class QAAgent:
 
         sorted_ev = _sort_evidence(all_evidence)
         curated, curation_meta = self._curate_evidence(question, sorted_ev)
-        yield format_response(_strip_think(choice.message.content or ""), curated, curation=curation_meta, total_count=len(all_evidence))
+        yield format_response(_trim_answer(_strip_think(choice.message.content or "")), curated, curation=curation_meta, total_count=len(all_evidence))
