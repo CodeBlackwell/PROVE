@@ -13,12 +13,58 @@ A recruiter asks *"Does this engineer know Kubernetes?"* — ShowMeOff searches 
 
 ## Architecture
 
-```
-Ingestion (one-time, Sonnet):
-  Resume + Repos → Tree-sitter Parse → Sonnet Skill Classification → Sonnet Context Generation → Embedding → Neo4j
+```mermaid
+flowchart TB
+    subgraph INGEST["<b>Ingestion</b> · one-time · Claude Sonnet"]
+        direction TB
+        R[Resume PDF] --> RP[Sonnet Parse<br><i>roles, skills, companies</i>]
+        G[GitHub Repos] --> TS[Tree-sitter Parse<br><i>functions, classes</i>]
+        TS --> SC[Sonnet Classify<br><i>map to skill taxonomy</i>]
+        SC --> CG[Sonnet Context Gen<br><i>dense paragraph per snippet</i>]
+        CG --> EM[Embed<br><i>Voyage-3.5 / EmbedQA</i>]
+        EM --> N4[(Neo4j<br>Knowledge Graph)]
+        RP --> N4
+    end
 
-Query (per-request, Haiku):
-  User Query → Embed Query → Vector Search → Haiku ReAct Agent (Tools) → Haiku Evidence Curation → Streamed Response
+    subgraph GRAPH["<b>Knowledge Graph</b> · Neo4j"]
+        direction LR
+        ENG[Engineer] -->|OWNS| REPO[Repository]
+        REPO -->|CONTAINS| FILE[File]
+        FILE -->|CONTAINS| CS[CodeSnippet<br><i>content, context,<br>embeddings, lines</i>]
+        CS -->|DEMONSTRATES| SK[Skill<br><i>proficiency, counts</i>]
+        DOM[Domain] -->|CONTAINS| CAT[Category]
+        CAT -->|CONTAINS| SK
+        ENG -->|CLAIMS| SK
+    end
+
+    subgraph QUERY["<b>Query</b> · per-request · Claude Haiku"]
+        direction TB
+        Q[User Question] --> EMQ[Embed Query]
+        EMQ --> REACT[ReAct Agent<br><i>up to 4 tool calls</i>]
+        REACT --> T1[search_code<br><i>vector similarity</i>]
+        REACT --> T2[get_evidence<br><i>skill lookup</i>]
+        REACT --> T3[find_gaps<br><i>gap analysis</i>]
+        REACT --> T4[get_repo_overview<br><i>repo structure</i>]
+        REACT --> T5[get_connected_evidence<br><i>multi-file view</i>]
+        REACT --> T6[search_resume<br><i>work history</i>]
+        T1 & T2 & T3 & T4 & T5 & T6 --> EV[Evidence Collection<br><i>sort, dedup, diversify</i>]
+        EV --> CUR[Haiku Curation<br><i>pick best, assign display mode</i>]
+    end
+
+    subgraph STREAM["<b>Response</b> · SSE Stream"]
+        direction LR
+        SS[Status Updates<br><i>tool-by-tool</i>] --> SG[Skill Subgraph<br><i>progressive D3 viz</i>]
+        SG --> ANS[Answer + Evidence<br><i>narrative, code, GitHub links,<br>confidence score</i>]
+    end
+
+    N4 --> QUERY
+    REACT -.->|intermediate<br>subgraph| SG
+    CUR --> ANS
+
+    style INGEST fill:#f5f0eb,stroke:#8b7355,color:#2c2c2c
+    style GRAPH fill:#f5f0eb,stroke:#6b8f9e,color:#2c2c2c
+    style QUERY fill:#f5f0eb,stroke:#7a8b6f,color:#2c2c2c
+    style STREAM fill:#f5f0eb,stroke:#b8805a,color:#2c2c2c
 ```
 
 ### Why Split Models
