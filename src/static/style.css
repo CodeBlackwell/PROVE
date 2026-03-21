@@ -12,12 +12,128 @@
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
+/* ── Canvas toggle (view background) ────────── */
+.canvas-toggle {
+  position: fixed;
+  z-index: 50;
+  bottom: 1.2rem;
+  right: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(212, 205, 196, 0.5);
+  background: rgba(234, 213, 182, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--ink-light);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, transform 0.2s;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+
+.canvas-toggle:hover {
+  background: rgba(234, 213, 182, 0.85);
+  color: var(--ink);
+  transform: scale(1.1);
+}
+
+body.canvas-mode .canvas-toggle {
+  background: rgba(26, 20, 16, 0.6);
+  color: rgba(234, 213, 182, 0.9);
+  border-color: rgba(234, 213, 182, 0.3);
+}
+
+/* Slide panels off-screen, fade back in */
+.left-col,
+#graph-panel {
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.6s ease;
+}
+
+body.canvas-mode .left-col {
+  transform: translateX(calc(-100% - 2rem));
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.canvas-mode #graph-panel {
+  transform: translateX(calc(100% + 2rem));
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Loading screen ────────────────────────── */
+.loader {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  transition: opacity 0.8s ease;
+}
+
+.is-reveal .loader {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loader__icon {
+  animation: spin 3s linear infinite;
+}
+
+.loader__arc {
+  stroke-dasharray: 60 200;
+  animation: arc-draw 1.8s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes arc-draw {
+  0% { stroke-dashoffset: 60; }
+  50% { stroke-dashoffset: -60; }
+  100% { stroke-dashoffset: -180; }
+}
+
+/* ── Staggered reveal ────────────────────────── */
+.is-loading .hero__name,
+.is-loading .hero__tagline,
+.is-loading .hero__intro,
+.is-loading #chat-panel,
+.is-loading #graph-panel {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+.hero__name,
+.hero__tagline,
+.hero__intro,
+#chat-panel,
+#graph-panel {
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.is-reveal .hero__name     { transition-delay: 0.3s; }
+.is-reveal .hero__tagline  { transition-delay: 0.8s; }
+.is-reveal .hero__intro    { transition-delay: 1.3s; }
+.is-reveal #chat-panel     { transition-delay: 2.2s; }
+.is-reveal #graph-panel    { transition-delay: 2.6s; }
+
 body {
   font-family: "Noto Sans JP", -apple-system, sans-serif;
   font-weight: 400;
   line-height: 1.7;
   color: var(--ink);
-  background: url('background.svg') center/cover no-repeat fixed;
+  background: var(--bg);
+  background-image: url('background.svg');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   overflow: hidden;
   height: 100vh;
 }
@@ -45,6 +161,10 @@ main {
   flex-shrink: 0;
   padding: 1rem 1.2rem;
   font-family: "Cormorant Garamond", "Georgia", serif;
+  background: rgba(234, 213, 182, 0.55);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 12px;
 }
 
 .hero__name {
@@ -272,6 +392,48 @@ main {
 .viz-toggle__btn:first-child { border-radius: 3px 0 0 3px; }
 .viz-toggle__btn--active { background: var(--bg); color: var(--ink); }
 .viz-toggle__btn:hover:not(.viz-toggle__btn--active) { background: var(--bg); }
+
+/* Domain filter bar */
+.graph-filter {
+  display: none;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.45rem 1rem;
+  border-bottom: 1px solid rgba(212, 205, 196, 0.4);
+}
+
+.filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--stone);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-light);
+  font-family: inherit;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.filter-pill:hover:not(.filter-pill--active) { background: var(--bg); }
+.filter-pill--active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.filter-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.filter-pill--active .filter-dot { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4); }
 
 /* D3 SVG */
 #viz-svg { width: 100%; height: 100%; }

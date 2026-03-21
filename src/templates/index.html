@@ -4,11 +4,33 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ name }} — ShowMeOff</title>
-  <link rel="stylesheet" href="/static/style.css?v=15">
+  <link rel="stylesheet" href="/static/style.css?v=20">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Noto+Sans+JP:wght@300;400&display=swap" rel="stylesheet">
 </head>
-<body>
+<body class="is-loading">
+  <!-- Loading screen -->
+  <div class="loader" id="loader">
+    <svg class="loader__icon" viewBox="0 0 100 100" width="64" height="64">
+      <circle cx="50" cy="50" r="38" fill="none" stroke="#c4b8a8" stroke-width="0.5"/>
+      <circle cx="50" cy="50" r="24" fill="none" stroke="#c4b8a8" stroke-width="0.5"/>
+      <circle cx="50" cy="50" r="14" fill="none" stroke="#c4b8a8" stroke-width="0.5"/>
+      <line x1="50" y1="12" x2="50" y2="88" stroke="#c4b8a8" stroke-width="0.5"/>
+      <line x1="12" y1="50" x2="88" y2="50" stroke="#c4b8a8" stroke-width="0.5"/>
+      <line x1="23" y1="23" x2="77" y2="77" stroke="#c4b8a8" stroke-width="0.4"/>
+      <line x1="77" y1="23" x2="23" y2="77" stroke="#c4b8a8" stroke-width="0.4"/>
+      <path d="M50 12 A38 38 0 0 1 88 50" fill="none" stroke="#6b4c2a" stroke-width="1.5" stroke-linecap="round" class="loader__arc"/>
+      <circle cx="50" cy="50" r="2.5" fill="#6b4c2a"/>
+    </svg>
+  </div>
+
+  <button class="canvas-toggle" id="canvas-toggle" title="View background" aria-label="Toggle background view">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
+  </button>
+
   <main>
     <div class="left-col">
       <header class="hero">
@@ -30,6 +52,7 @@
         <button class="viz-toggle__btn viz-toggle__btn--active" data-mode="treemap">Treemap</button>
         <button class="viz-toggle__btn" data-mode="bars">Bars</button>
       </div>
+      <div class="graph-filter" id="graph-filter"></div>
       <div id="graph-container"></div>
       <p class="graph-empty">Graph builds as you chat…</p>
       <div class="legend" id="viz-legend"></div>
@@ -37,8 +60,23 @@
   </main>
 
   <script src="https://d3js.org/d3.v7.min.js"></script>
-  <script src="/static/fingerprint.js?v=15"></script>
-  <script src="/static/graph.js?v=15"></script>
-  <script src="/static/chat.js?v=15"></script>
+  <script src="/static/fingerprint.js?v=20"></script>
+  <script src="/static/graph.js?v=20"></script>
+  <script src="/static/chat.js?v=20"></script>
+  <script>
+    (function() {
+      const bg = new Image();
+      bg.src = '/static/background.svg';
+      bg.onload = bg.onerror = function() {
+        document.body.classList.remove('is-loading');
+        document.body.classList.add('is-reveal');
+        const loader = document.getElementById('loader');
+        loader.addEventListener('transitionend', () => loader.remove());
+      };
+      document.getElementById('canvas-toggle').addEventListener('click', function() {
+        document.body.classList.toggle('canvas-mode');
+      });
+    })();
+  </script>
 </body>
 </html>

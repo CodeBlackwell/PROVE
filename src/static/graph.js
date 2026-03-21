@@ -4,8 +4,10 @@ class GraphState {
   constructor() { this.clear(); }
 
   update(data) {
+    this._queryCounter++;
+    const qi = this._queryCounter;
     for (const n of data.nodes) {
-      if (!this.nodes.has(n.id)) this.nodes.set(n.id, n);
+      if (!this.nodes.has(n.id)) { n._query = qi; this.nodes.set(n.id, n); }
     }
     for (const e of data.edges) {
       const key = e.from + '→' + e.to;
@@ -20,9 +22,39 @@ class GraphState {
     this.nodes = new Map();
     this.edges = [];
     this._edgeSet = new Set();
+    this._queryCounter = 0;
   }
 
   get empty() { return this.nodes.size === 0; }
+
+  getDomains() {
+    const out = [];
+    for (const [id, n] of this.nodes) {
+      if ((n.meta || {}).type === 'domain') out.push({ id, name: n.label });
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  filteredView(domainIds) {
+    if (!domainIds || domainIds.length === 0) return this;
+    const domSet = new Set(domainIds);
+    const keep = new Set(domainIds);
+    // domain → category edges
+    for (const e of this.edges) { if (domSet.has(e.from)) keep.add(e.to); }
+    // category → skill edges
+    const cats = new Set([...keep].filter(id => !domSet.has(id)));
+    for (const e of this.edges) { if (cats.has(e.from)) keep.add(e.to); }
+    const v = new GraphState();
+    v._queryCounter = this._queryCounter;
+    for (const [id, n] of this.nodes) { if (keep.has(id)) v.nodes.set(id, n); }
+    for (const e of this.edges) {
+      if (keep.has(e.from) && keep.has(e.to)) {
+        v.edges.push(e);
+        v._edgeSet.add(e._key || (e.from + '\u2192' + e.to));
+      }
+    }
+    return v;
+  }
 }
 
 /* ── Data Transforms ────────────────────────────────────────── */
@@ -667,6 +699,61 @@ function updateLegend(mode) {
   if (el) el.innerHTML = LEGENDS[mode] || '';
 }
 
+/* ── Domain Filter ─────────────────────────────────────────── */
+
+let activeFilter = null; // null = all, Set<domainId> = filtered
+
+function updateFilterBar() {
+  const bar = document.getElementById('graph-filter');
+  if (!bar) return;
+  const domains = state.getDomains();
+  if (domains.length < 2) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = '';
+
+  const allBtn = document.createElement('button');
+  allBtn.className = 'filter-pill' + (!activeFilter ? ' filter-pill--active' : '');
+  allBtn.dataset.domain = '';
+  allBtn.textContent = 'All';
+  bar.appendChild(allBtn);
+
+  for (const d of domains) {
+    const btn = document.createElement('button');
+    btn.className = 'filter-pill' + (activeFilter && activeFilter.has(d.id) ? ' filter-pill--active' : '');
+    btn.dataset.domain = d.id;
+    const dot = document.createElement('span');
+    dot.className = 'filter-dot';
+    dot.style.background = domainColor(d.name);
+    btn.appendChild(dot);
+    btn.appendChild(document.createTextNode(d.name));
+    bar.appendChild(btn);
+  }
+}
+
+document.getElementById('graph-filter').addEventListener('click', e => {
+  const btn = e.target.closest('.filter-pill');
+  if (!btn) return;
+  const did = btn.dataset.domain;
+  if (!did) {
+    activeFilter = null;
+  } else {
+    if (!activeFilter) activeFilter = new Set();
+    if (activeFilter.has(did)) {
+      activeFilter.delete(did);
+      if (!activeFilter.size) activeFilter = null;
+    } else {
+      activeFilter.add(did);
+    }
+  }
+  updateFilterBar();
+  renderCurrent();
+});
+
+function getViewState() {
+  if (!activeFilter) return state;
+  return state.filteredView([...activeFilter]);
+}
+
 /* ── Orchestrator ───────────────────────────────────────────── */
 
 const renderers = { treemap: TreemapRenderer, bars: BarRenderer };
@@ -698,15 +785,16 @@ function switchMode(mode) {
   });
   updateLegend(mode);
   renderers[mode].init(svg, dims);
-  if (!state.empty) renderers[mode].render(state, dims);
+  if (!state.empty) renderers[mode].render(getViewState(), dims);
 }
 
 function renderCurrent() {
   if (!svg) return;
   measureDims();
+  const viewState = getViewState();
   const r = renderers[activeMode];
   if (!r._root) r.init(svg, dims);
-  r.render(state, dims);
+  r.render(viewState, dims);
 }
 
 document.querySelectorAll('.viz-toggle__btn').forEach(btn => {
@@ -728,11 +816,14 @@ window.updateGraph = function (data) {
   state.update(data);
   const empty = document.querySelector('.graph-empty');
   if (empty && !state.empty) empty.style.display = 'none';
+  updateFilterBar();
   renderCurrent();
 };
 
 window.resetGraph = function () {
   state.clear();
+  activeFilter = null;
+  updateFilterBar();
   renderCurrent();
   const empty = document.querySelector('.graph-empty');
   if (empty) empty.style.display = '';
