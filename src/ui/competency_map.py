@@ -82,12 +82,14 @@ def _top_evidence_links(session, skill_name: str, limit: int = 5) -> list[dict]:
         rows = session.run(
             "MATCH (f:File)-[:CONTAINS]->(cs:CodeSnippet)-[:DEMONSTRATES]->(s:Skill {name: $name}) "
             "MATCH (r:Repository)-[:CONTAINS]->(f) "
-            "RETURN r.name AS repo, f.path AS path, cs.start_line AS line, cs.language AS lang "
+            "RETURN r.name AS repo, r.default_branch AS branch, f.path AS path, "
+            "cs.start_line AS line, cs.language AS lang "
             "ORDER BY cs.start_line LIMIT $limit",
             name=skill_name, limit=limit,
         )
         return [
-            {"repo": r["repo"], "path": r["path"], "line": r["line"] or 0, "lang": r["lang"] or ""}
+            {"repo": r["repo"], "branch": r["branch"] or "main",
+             "path": r["path"], "line": r["line"] or 0, "lang": r["lang"] or ""}
             for r in rows
         ]
     except Exception:

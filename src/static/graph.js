@@ -232,8 +232,9 @@ function hideTooltip() {
   ensureTooltip().classList.remove('viz-tooltip--visible');
 }
 
-function _ghLink(repo, path, line) {
-  return `https://github.com/codeblackwell/${repo}/blob/main/${path}#L${line}`;
+function _ghLink(repo, path, line, branch) {
+  const b = branch || 'main';
+  return `https://github.com/codeblackwell/${repo}/blob/${b}/${path}#L${line}`;
 }
 
 function tipHtml(d) {
@@ -252,7 +253,7 @@ function tipHtml(d) {
   if (links.length > 0) {
     h += '<div class="tip-links">';
     for (const l of links) {
-      const url = _ghLink(l.repo, l.path, l.line);
+      const url = _ghLink(l.repo, l.path, l.line, l.branch);
       const short = l.repo + '/' + l.path.split('/').pop() + '#L' + l.line;
       h += `<a href="${url}" target="_blank" class="tip-link">${short}</a>`;
     }
@@ -260,6 +261,147 @@ function tipHtml(d) {
   }
 
   return h;
+}
+
+/* ── Reference Index Modal ──────────────────────────────────── */
+
+let refModal = null;
+
+function _ensureModal() {
+  if (refModal) return refModal;
+  refModal = document.createElement('div');
+  refModal.className = 'ref-modal';
+  refModal.innerHTML =
+    '<div class="ref-modal__backdrop"></div>' +
+    '<div class="ref-modal__panel">' +
+      '<button class="ref-modal__close" aria-label="Close">&times;</button>' +
+      '<div class="ref-modal__header"></div>' +
+      '<div class="ref-modal__body"></div>' +
+    '</div>';
+  document.body.appendChild(refModal);
+  refModal.querySelector('.ref-modal__backdrop').addEventListener('click', closeRefModal);
+  refModal.querySelector('.ref-modal__close').addEventListener('click', closeRefModal);
+  return refModal;
+}
+
+function closeRefModal() {
+  if (refModal) refModal.classList.remove('ref-modal--open');
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeRefModal();
+});
+
+function openRefModal(skillName) {
+  const m = _ensureModal();
+  const header = m.querySelector('.ref-modal__header');
+  const body = m.querySelector('.ref-modal__body');
+
+  header.innerHTML = `<h2>${skillName}</h2><p class="ref-modal__loading">Loading references…</p>`;
+  body.innerHTML = '';
+  m.classList.add('ref-modal--open');
+
+  fetch(`/api/skills/${encodeURIComponent(skillName)}/references`)
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(data => _renderRefModal(header, body, data))
+    .catch(() => {
+      header.querySelector('.ref-modal__loading').textContent = 'Could not load references.';
+    });
+}
+
+const LANG_ICONS = { py: 'Python', js: 'JavaScript', ts: 'TypeScript', tsx: 'TypeScript', jsx: 'JavaScript', java: 'Java', go: 'Go', rs: 'Rust', rb: 'Ruby', cpp: 'C++', c: 'C' };
+
+function _renderRefModal(header, body, data) {
+  const profClass = data.proficiency ? `tip-prof tip-prof--${data.proficiency}` : '';
+
+  // Group by repo
+  const byRepo = new Map();
+  for (const ref of data.references) {
+    if (!byRepo.has(ref.repo)) byRepo.set(ref.repo, []);
+    byRepo.get(ref.repo).push(ref);
+  }
+  const repoNames = [...byRepo.keys()];
+
+  header.innerHTML =
+    `<h2>${data.skill}</h2>` +
+    `<div class="ref-modal__meta">` +
+      `<span class="ref-modal__path">${data.domain} › ${data.category}</span>` +
+      (data.proficiency ? `<span class="${profClass}">${data.proficiency}</span>` : '') +
+    `</div>` +
+    `<div class="ref-modal__stats">` +
+      `${data.snippet_count} snippet${data.snippet_count !== 1 ? 's' : ''} across ` +
+      `${data.repo_count} repo${data.repo_count !== 1 ? 's' : ''}` +
+    `</div>`;
+
+  // Repo filter (only show if more than one repo)
+  if (repoNames.length > 1) {
+    const filterDiv = document.createElement('div');
+    filterDiv.className = 'ref-filter';
+    const allBtn = document.createElement('button');
+    allBtn.className = 'ref-filter__btn ref-filter__btn--active';
+    allBtn.textContent = `All (${data.references.length})`;
+    allBtn.dataset.repo = '';
+    filterDiv.appendChild(allBtn);
+    for (const repo of repoNames) {
+      const btn = document.createElement('button');
+      btn.className = 'ref-filter__btn';
+      btn.textContent = `${repo} (${byRepo.get(repo).length})`;
+      btn.dataset.repo = repo;
+      filterDiv.appendChild(btn);
+    }
+    header.appendChild(filterDiv);
+
+    filterDiv.addEventListener('click', e => {
+      const btn = e.target.closest('.ref-filter__btn');
+      if (!btn) return;
+      filterDiv.querySelectorAll('.ref-filter__btn').forEach(b => b.classList.remove('ref-filter__btn--active'));
+      btn.classList.add('ref-filter__btn--active');
+      _renderRefList(body, byRepo, btn.dataset.repo || null);
+    });
+  }
+
+  if (data.references.length === 0) {
+    body.innerHTML = '<p class="ref-modal__empty">No code evidence found for this skill.</p>';
+    return;
+  }
+
+  _renderRefList(body, byRepo, null);
+}
+
+function _renderRefList(body, byRepo, filterRepo) {
+  let html = '';
+  for (const [repo, refs] of byRepo) {
+    if (filterRepo && repo !== filterRepo) continue;
+    const repoUrl = `https://github.com/codeblackwell/${repo}`;
+    html += `<div class="ref-repo">`;
+    html += `<h3 class="ref-repo__name"><a href="${repoUrl}" target="_blank">${repo}</a></h3>`;
+
+    for (const ref of refs) {
+      const url = _ghLink(ref.repo, ref.path, ref.start_line, ref.branch);
+      const langLabel = LANG_ICONS[ref.language] || ref.language || '';
+      const lineRange = ref.end_line > ref.start_line
+        ? `L${ref.start_line}–${ref.end_line}`
+        : `L${ref.start_line}`;
+      const dates = ref.first_seen
+        ? (ref.first_seen === ref.last_seen ? ref.first_seen : `${ref.first_seen} → ${ref.last_seen}`)
+        : '';
+
+      html += `<div class="ref-item">`;
+      html += `<div class="ref-item__file">`;
+      html += `<a href="${url}" target="_blank" class="ref-item__link">${ref.path}</a>`;
+      html += `<span class="ref-item__line">${lineRange}</span>`;
+      if (langLabel) html += `<span class="ref-item__lang">${langLabel}</span>`;
+      html += `</div>`;
+      html += `<div class="ref-item__name">${ref.snippet_name}</div>`;
+      if (ref.context) html += `<div class="ref-item__context">${ref.context}</div>`;
+      if (dates) html += `<div class="ref-item__dates">${dates}</div>`;
+      html += `</div>`;
+    }
+
+    html += `</div>`;
+  }
+
+  body.innerHTML = html;
 }
 
 /* ── Treemap Renderer ──────────────────────────────────────── */
@@ -362,6 +504,11 @@ const TreemapRenderer = {
             hideTooltip();
             d3.select(evt.target).style('opacity', 0.88);
           })
+          .on('click', (evt, d) => {
+            evt.stopPropagation();
+            hideTooltip();
+            if (d.data.status === 'demonstrated') openRefModal(d.data.name);
+          })
           .transition().duration(500).ease(d3.easeCubicOut)
           .style('opacity', 0.88)
       );
@@ -462,6 +609,11 @@ const BarRenderer = {
         .on('mouseout', (evt) => {
           hideTooltip();
           d3.select(evt.target).style('opacity', 0.85);
+        })
+        .on('click', (evt) => {
+          evt.stopPropagation();
+          hideTooltip();
+          if (skill.status === 'demonstrated') openRefModal(skill.name);
         })
         .transition().duration(500).delay(i * 60).ease(d3.easeCubicOut)
         .attr('width', barWidth);

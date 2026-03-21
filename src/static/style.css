@@ -370,3 +370,198 @@ body::after {
   0%, 100% { opacity: 0.4; }
   50% { opacity: 1; }
 }
+
+/* ── Reference Index Modal ────────────────────────── */
+
+.ref-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+}
+
+.ref-modal--open { display: flex; align-items: center; justify-content: center; }
+
+.ref-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(44, 44, 44, 0.35);
+  backdrop-filter: blur(2px);
+}
+
+.ref-modal__panel {
+  position: relative;
+  width: min(640px, 90vw);
+  max-height: 80vh;
+  background: var(--surface);
+  border: 1px solid var(--stone);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.ref-modal__close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.8rem;
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  color: var(--ink-faint);
+  cursor: pointer;
+  line-height: 1;
+  z-index: 1;
+}
+.ref-modal__close:hover { color: var(--ink); }
+
+.ref-modal__header {
+  padding: 1.2rem 1.4rem 0.8rem;
+  border-bottom: 1px solid var(--stone);
+  flex-shrink: 0;
+}
+
+.ref-modal__header h2 {
+  font-weight: 400;
+  font-size: 1.1rem;
+  letter-spacing: 0.02em;
+  margin-bottom: 0.2rem;
+}
+
+.ref-modal__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.2rem;
+}
+
+.ref-modal__path {
+  font-size: 0.78rem;
+  color: var(--ink-light);
+}
+
+.ref-modal__stats {
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}
+
+/* Repo filter */
+.ref-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+}
+
+.ref-filter__btn {
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--stone);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--ink-light);
+  font-family: inherit;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ref-filter__btn:hover:not(.ref-filter__btn--active) { background: var(--bg); }
+.ref-filter__btn--active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.ref-modal__loading {
+  font-size: 0.82rem;
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.ref-modal__empty {
+  padding: 2rem 1.4rem;
+  color: var(--ink-faint);
+  text-align: center;
+}
+
+.ref-modal__body {
+  overflow-y: auto;
+  padding: 0.6rem 1.4rem 1.2rem;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Repo group */
+.ref-repo { margin-bottom: 1rem; }
+.ref-repo:last-child { margin-bottom: 0; }
+
+.ref-repo__name {
+  font-weight: 400;
+  font-size: 0.85rem;
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--stone);
+}
+
+.ref-repo__name a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.ref-repo__name a:hover { text-decoration: underline; }
+
+/* Individual reference */
+.ref-item {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #ebe6df;
+}
+.ref-item:last-child { border-bottom: none; }
+
+.ref-item__file {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ref-item__link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+.ref-item__link:hover { text-decoration: underline; }
+
+.ref-item__line {
+  font-size: 0.7rem;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.ref-item__lang {
+  font-size: 0.65rem;
+  color: var(--moss);
+  background: #7a8b6f15;
+  padding: 0.05rem 0.35rem;
+  border-radius: 3px;
+}
+
+.ref-item__name {
+  font-size: 0.75rem;
+  color: var(--ink-light);
+  margin-top: 0.15rem;
+  font-family: monospace;
+}
+
+.ref-item__context {
+  font-size: 0.75rem;
+  color: var(--ink-light);
+  margin-top: 0.2rem;
+  line-height: 1.5;
+}
+
+.ref-item__dates {
+  font-size: 0.68rem;
+  color: var(--ink-faint);
+  margin-top: 0.15rem;
+}

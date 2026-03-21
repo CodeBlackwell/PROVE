@@ -155,6 +155,69 @@ def query_logs(request: Request, session_id: str | None = None, event: str | Non
 
 
 # ---------------------------------------------------------------------------
+# Skill reference detail endpoint
+# ---------------------------------------------------------------------------
+
+@app.get("/api/skills/{skill_name}/references")
+def skill_references(request: Request, skill_name: str):
+    vid = _visitor_id(request)
+    blocked = _check_limit(vid, "read")
+    if blocked:
+        return blocked
+
+    neo4j = clients["neo4j_client"]
+    with neo4j.driver.session() as s:
+        # Skill metadata + hierarchy
+        meta = s.run(
+            "MATCH (d:Domain)-[:CONTAINS]->(c:Category)-[:CONTAINS]->(sk:Skill {name: $name}) "
+            "RETURN d.name AS domain, c.name AS category, sk.proficiency AS proficiency, "
+            "sk.snippet_count AS snippet_count, sk.repo_count AS repo_count",
+            name=skill_name,
+        ).single()
+
+        if not meta:
+            return JSONResponse({"error": "Skill not found"}, status_code=404)
+
+        # All evidence snippets
+        rows = s.run(
+            "MATCH (f:File)-[:CONTAINS]->(cs:CodeSnippet)-[d:DEMONSTRATES]->(sk:Skill {name: $name}) "
+            "MATCH (r:Repository)-[:CONTAINS]->(f) "
+            "RETURN r.name AS repo, r.default_branch AS branch, f.path AS path, "
+            "cs.name AS snippet_name, cs.context AS context, "
+            "cs.start_line AS start_line, cs.end_line AS end_line, "
+            "cs.language AS lang, d.first_seen AS first_seen, d.last_seen AS last_seen, "
+            "d.snippet_lines AS lines "
+            "ORDER BY r.name, f.path, cs.start_line",
+            name=skill_name,
+        ).data()
+
+    return {
+        "skill": skill_name,
+        "domain": meta["domain"],
+        "category": meta["category"],
+        "proficiency": meta["proficiency"],
+        "snippet_count": meta["snippet_count"] or 0,
+        "repo_count": meta["repo_count"] or 0,
+        "references": [
+            {
+                "repo": r["repo"],
+                "branch": r["branch"] or "main",
+                "path": r["path"],
+                "snippet_name": r["snippet_name"],
+                "context": r["context"] or "",
+                "start_line": r["start_line"] or 0,
+                "end_line": r["end_line"] or 0,
+                "language": r["lang"] or "",
+                "first_seen": r["first_seen"] or "",
+                "last_seen": r["last_seen"] or "",
+                "lines": r["lines"] or 0,
+            }
+            for r in rows
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
 # Periodic cleanup (runs on startup, then every hour via background task)
 # ---------------------------------------------------------------------------
 

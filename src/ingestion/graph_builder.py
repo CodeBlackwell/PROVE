@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 
 from src.core import logger
@@ -24,6 +25,21 @@ def build_preamble(name, language, file_path, repo_name, skills):
     return "\n".join(parts)
 
 
+def _detect_default_branch(repo_path: Path) -> str:
+    """Detect the default branch of a cloned repo."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=repo_path, capture_output=True, text=True, timeout=5,
+        )
+        branch = result.stdout.strip()
+        if branch and branch != "HEAD":
+            return branch
+    except Exception:
+        pass
+    return "main"
+
+
 def build_graph(repo_path, neo4j_client, embed_client, chat_client):
     repo_path = Path(repo_path)
     repo_name = repo_path.name
@@ -31,10 +47,12 @@ def build_graph(repo_path, neo4j_client, embed_client, chat_client):
 
     logger.info("graph.build_start", repo=repo_name)
 
+    default_branch = _detect_default_branch(repo_path)
+
     with neo4j_client.driver.session() as session:
         session.run(
-            "MERGE (r:Repository {name: $name}) SET r.path = $path",
-            name=repo_name, path=str(repo_path),
+            "MERGE (r:Repository {name: $name}) SET r.path = $path, r.default_branch = $branch",
+            name=repo_name, path=str(repo_path), branch=default_branch,
         )
 
         for file_path in _walk_code_files(repo_path):
