@@ -90,18 +90,20 @@ class Neo4jClient:
             "OPTIONAL MATCH (r:Repository)-[:CONTAINS]->(:File)-[:CONTAINS]->(node) "
             "OPTIONAL MATCH (node)-[:DEMONSTRATES]->(sk:Skill) "
             "RETURN properties(node) AS props, score, r.name AS repo, "
-            "collect(DISTINCT sk.name) AS skills"
+            "r.private AS private, collect(DISTINCT sk.name) AS skills"
         )
         with self.driver.session() as session:
             result = session.run(query, embedding=embedding, top_k=top_k)
-            return [{"props": r["props"], "score": r["score"], "repo": r["repo"], "skills": r["skills"]} for r in result]
+            return [{"props": r["props"], "score": r["score"], "repo": r["repo"],
+                     "private": bool(r["private"]), "skills": r["skills"]} for r in result]
 
     def get_skill_evidence(self, skill_name: str) -> list[dict]:
         query = (
             "MATCH (c:CodeSnippet)-[d:DEMONSTRATES]->(s:Skill {name: $name}) "
             "OPTIONAL MATCH (r:Repository)-[:CONTAINS]->(:File)-[:CONTAINS]->(c) "
             "RETURN properties(c) AS props, d.first_seen AS first_seen, "
-            "d.last_seen AS last_seen, s.proficiency AS proficiency, r.name AS repo "
+            "d.last_seen AS last_seen, s.proficiency AS proficiency, "
+            "r.name AS repo, r.private AS private "
             "LIMIT 10"
         )
         with self.driver.session() as session:
@@ -109,7 +111,8 @@ class Neo4jClient:
             return [
                 {**r["props"], "first_seen": str(r["first_seen"]) if r["first_seen"] else None,
                  "last_seen": str(r["last_seen"]) if r["last_seen"] else None,
-                 "proficiency": r["proficiency"], "repo": r["repo"]}
+                 "proficiency": r["proficiency"], "repo": r["repo"],
+                 "private": bool(r["private"])}
                 for r in result
             ]
 
@@ -149,12 +152,12 @@ class Neo4jClient:
             "-[:CONTAINS]->(cs:CodeSnippet)-[:DEMONSTRATES]->(s:Skill {name: $skill}) "
             "OPTIONAL MATCH (cs)-[:DEMONSTRATES]->(other:Skill) "
             "WHERE other.name <> $skill "
-            "WITH f, cs, s, collect(DISTINCT other.name) AS related_skills "
+            "WITH r, f, cs, s, collect(DISTINCT other.name) AS related_skills "
             "ORDER BY f.path, cs.start_line "
             "RETURN f.path AS file_path, cs.name AS snippet_name, "
             "cs.start_line AS start_line, cs.end_line AS end_line, "
             "cs.content AS content, cs.context AS context, "
-            "s.proficiency AS proficiency, related_skills "
+            "s.proficiency AS proficiency, r.private AS private, related_skills "
             "LIMIT 15"
         )
         with self.driver.session() as session:

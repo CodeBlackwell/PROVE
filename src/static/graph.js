@@ -283,12 +283,16 @@ function tipHtml(d) {
   if (s === 'gap') h += `<div class="tip-status tip-status--gap">Gap — not demonstrated</div>`;
 
   if (links.length > 0) {
+    let hasPrivate = false;
     h += '<div class="tip-links">';
     for (const l of links) {
       const url = _ghLink(l.repo, l.path, l.line, l.branch);
       const short = l.repo + '/' + l.path.split('/').pop() + '#L' + l.line;
-      h += `<a href="${url}" target="_blank" class="tip-link">${short}</a>`;
+      const lock = l.private ? '<span class="tip-lock" title="Private repo">\u{1F512}</span> ' : '';
+      h += `<a href="${url}" target="_blank" class="tip-link">${lock}${short}</a>`;
+      if (l.private) hasPrivate = true;
     }
+    if (hasPrivate) h += '<div class="tip-private">Private repo \u2014 happy to walk through it, reach out!</div>';
     h += '</div>';
   }
 
@@ -402,20 +406,24 @@ function _renderRefModal(header, body, data) {
 
 function _renderRefList(body, byRepo, filterRepo) {
   let html = '';
+  let hasPrivate = false;
   for (const [repo, refs] of byRepo) {
     if (filterRepo && repo !== filterRepo) continue;
+    const isPrivate = refs[0] && refs[0].private;
+    if (isPrivate) hasPrivate = true;
     const repoUrl = `https://github.com/codeblackwell/${repo}`;
+    const lock = isPrivate ? '<span class="ref-repo__lock" title="Private repository">\u{1F512}</span>' : '';
     html += `<div class="ref-repo">`;
-    html += `<h3 class="ref-repo__name"><a href="${repoUrl}" target="_blank">${repo}</a></h3>`;
+    html += `<h3 class="ref-repo__name"><a href="${repoUrl}" target="_blank">${repo}</a> ${lock}</h3>`;
 
     for (const ref of refs) {
       const url = _ghLink(ref.repo, ref.path, ref.start_line, ref.branch);
       const langLabel = LANG_ICONS[ref.language] || ref.language || '';
       const lineRange = ref.end_line > ref.start_line
-        ? `L${ref.start_line}–${ref.end_line}`
+        ? `L${ref.start_line}\u2013${ref.end_line}`
         : `L${ref.start_line}`;
       const dates = ref.first_seen
-        ? (ref.first_seen === ref.last_seen ? ref.first_seen : `${ref.first_seen} → ${ref.last_seen}`)
+        ? (ref.first_seen === ref.last_seen ? ref.first_seen : `${ref.first_seen} \u2192 ${ref.last_seen}`)
         : '';
 
       html += `<div class="ref-item">`;
@@ -431,6 +439,11 @@ function _renderRefList(body, byRepo, filterRepo) {
     }
 
     html += `</div>`;
+  }
+
+  if (hasPrivate) {
+    html += '<div class="ref-private-note">\u{1F512} Some code lives in a private repo. ' +
+      'I\u2019d love to walk you through it \u2014 <a href="https://github.com/codeblackwell" target="_blank">reach out</a> and let\u2019s chat!</div>';
   }
 
   body.innerHTML = html;

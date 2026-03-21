@@ -232,7 +232,8 @@ def _github_link(e: dict) -> str:
 
 
 def format_response(answer: str, evidence: list[dict], annotations: list[str] | None = None,
-                     curation: list[dict] | None = None, total_count: int | None = None) -> str:
+                     curation: list[dict] | None = None, total_count: int | None = None,
+                     show_private_code: bool = False) -> str:
     shown = evidence[:MAX_EVIDENCE_SHOWN]
     total = total_count if total_count is not None else len(evidence)
     lines = [answer, ""]
@@ -242,9 +243,14 @@ def format_response(answer: str, evidence: list[dict], annotations: list[str] | 
             link = _github_link(e)
             cur = curation[i] if curation and i < len(curation) else None
 
-            if cur and cur.get("mode") == "link":
+            # Force "link" mode for private repo evidence unless owner opted in
+            force_link = e.get("private") and not show_private_code
+
+            if force_link or (cur and cur.get("mode") == "link"):
+                explanation = cur["explanation"] if cur and cur.get("explanation") else e.get("context", "")
                 lines.append(f"\n{link}")
-                lines.append(f"> {cur['explanation']}")
+                if explanation:
+                    lines.append(f"> {explanation}")
             else:
                 content = e.get("content", "")
                 ctx = e.get("context", "")
@@ -287,10 +293,12 @@ CURATE_PROMPT = (
 
 
 class QAAgent:
-    def __init__(self, neo4j_client: Neo4jClient, chat_client, embed_client):
+    def __init__(self, neo4j_client: Neo4jClient, chat_client, embed_client,
+                 show_private_code: bool = False):
         self.neo4j = neo4j_client
         self.chat = chat_client
         self.embed = embed_client
+        self.show_private_code = show_private_code
         self.system_prompt = self._resolve_prompt()
 
     def _resolve_prompt(self) -> str:
@@ -499,7 +507,7 @@ class QAAgent:
                 logger.info("agent.react_done", step=step + 1, reason="final_answer")
                 sorted_ev = _sort_evidence(all_evidence)
                 curated, curation_meta = self._curate_evidence(question, sorted_ev)
-                return format_response(_trim_answer(_strip_think(choice.message.content or "")), curated, curation=curation_meta, total_count=len(all_evidence))
+                return format_response(_trim_answer(_strip_think(choice.message.content or "")), curated, curation=curation_meta, total_count=len(all_evidence), show_private_code=self.show_private_code)
             messages.append(self._assistant_msg(choice))
             for tc in choice.message.tool_calls:
                 result = self._execute_tool(tc.function.name, json.loads(tc.function.arguments))

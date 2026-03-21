@@ -16,6 +16,7 @@ class Settings:
     chat_provider: str
     claude_model: str
     db_path: str
+    show_private_code: bool
 
     @classmethod
     def load(cls) -> "Settings":
@@ -32,4 +33,5 @@ class Settings:
             chat_provider=os.getenv("CHAT_PROVIDER", "nim"),
             claude_model=os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001"),
             db_path=os.getenv("DB_PATH", "data/showmeoff.db"),
+            show_private_code=os.getenv("SHOW_PRIVATE_CODE", "false").lower() in ("true", "1", "yes"),
         )

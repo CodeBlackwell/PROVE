@@ -20,7 +20,8 @@ db = clients["db"]
 # Attach SQLite as additional log sink (after DB is created)
 logger.attach_db(db)
 
-qa_agent = QAAgent(clients["neo4j_client"], clients["chat_client"], clients["embed_client"])
+qa_agent = QAAgent(clients["neo4j_client"], clients["chat_client"], clients["embed_client"],
+                   show_private_code=settings.show_private_code)
 
 logger.info("app.startup", chat_provider=settings.chat_provider,
             embed_provider=settings.embed_provider)
@@ -189,7 +190,7 @@ def skill_references(request: Request, skill_name: str):
         rows = s.run(
             "MATCH (f:File)-[:CONTAINS]->(cs:CodeSnippet)-[d:DEMONSTRATES]->(sk:Skill {name: $name}) "
             "MATCH (r:Repository)-[:CONTAINS]->(f) "
-            "RETURN r.name AS repo, r.default_branch AS branch, f.path AS path, "
+            "RETURN r.name AS repo, r.default_branch AS branch, r.private AS private, f.path AS path, "
             "cs.name AS snippet_name, cs.context AS context, "
             "cs.start_line AS start_line, cs.end_line AS end_line, "
             "cs.language AS lang, d.first_seen AS first_seen, d.last_seen AS last_seen, "
@@ -218,6 +219,7 @@ def skill_references(request: Request, skill_name: str):
                 "first_seen": r["first_seen"] or "",
                 "last_seen": r["last_seen"] or "",
                 "lines": r["lines"] or 0,
+                "private": bool(r["private"]) if r["private"] is not None else False,
             }
             for r in rows
         ],

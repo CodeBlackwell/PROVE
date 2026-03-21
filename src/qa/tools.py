@@ -16,6 +16,7 @@ def search_code(query: str, neo4j_client: Neo4jClient, embed_client) -> list[dic
             "context": r["props"].get("context", ""),
             "score": r["score"],
             "repo": r.get("repo"),
+            "private": r.get("private", False),
             "skills": r.get("skills", []),
         }
         for r in results
@@ -36,6 +37,7 @@ def get_evidence(skill_name: str, neo4j_client: Neo4jClient) -> list[dict]:
             "last_seen": r.get("last_seen"),
             "proficiency": r.get("proficiency"),
             "repo": r.get("repo"),
+            "private": r.get("private", False),
             "skill_name": skill_name,
         }
         for r in results
@@ -127,6 +129,7 @@ def get_connected_evidence(skill_name: str, repo_name: str, neo4j_client: Neo4jC
             "context": s.get("context", ""),
             "proficiency": s["proficiency"],
             "repo": repo_name,
+            "private": bool(s.get("private")),
             "related_skills": s.get("related_skills", []),
             "skill_name": skill_name,
         }

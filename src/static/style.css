@@ -536,6 +536,16 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
 }
 .tip-link:hover { text-decoration: underline; }
 
+.tip-lock { font-size: 0.6rem; }
+
+.tip-private {
+  font-size: 0.62rem;
+  font-style: italic;
+  color: var(--ink-faint);
+  margin-top: 0.3rem;
+  line-height: 1.4;
+}
+
 /* Status tracker */
 .msg-status {
   font-size: 0.82rem;
@@ -857,3 +867,22 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   color: var(--ink-faint);
   margin-top: 0.15rem;
 }
+
+.ref-repo__lock { font-size: 0.72rem; vertical-align: middle; }
+
+.ref-private-note {
+  margin-top: 1rem;
+  padding: 0.7rem 0.9rem;
+  background: rgba(107, 76, 42, 0.06);
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: var(--ink-light);
+  line-height: 1.55;
+}
+
+.ref-private-note a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.ref-private-note a:hover { text-decoration: underline; }

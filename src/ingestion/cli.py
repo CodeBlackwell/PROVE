@@ -31,15 +31,20 @@ def clone_repo(github_url: str, token: str = "") -> Path:
     return dest
 
 
-def fetch_github_repos(username: str, token: str = "") -> list[str]:
-    """Fetch all public (+ private if token provided) repo URLs for a GitHub user."""
+def fetch_github_repos(username: str, token: str = "") -> tuple[list[str], dict[str, bool]]:
+    """Fetch all public (+ private if token provided) repo URLs for a GitHub user.
+
+    Returns (clone_urls, visibility) where visibility maps repo name -> is_private.
+    """
     import json, urllib.request
 
     headers = {"Accept": "application/vnd.github+json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
-    repos, page = [], 1
+    repos: list[str] = []
+    visibility: dict[str, bool] = {}
+    page = 1
     while True:
         url = f"https://api.github.com/users/{username}/repos?per_page=100&page={page}"
         req = urllib.request.Request(url, headers=headers)
@@ -47,11 +52,15 @@ def fetch_github_repos(username: str, token: str = "") -> list[str]:
             batch = json.loads(resp.read())
         if not batch:
             break
-        repos.extend(r["clone_url"] for r in batch if not r.get("fork"))
+        for r in batch:
+            if r.get("fork"):
+                continue
+            repos.append(r["clone_url"])
+            visibility[r["name"]] = r.get("private", False)
         page += 1
 
     logger.info("ingestion.github_repos", username=username, count=len(repos))
-    return repos
+    return repos, visibility
 
 
 def ingest(resume_path: str, repo_sources: list[str], github_user: str = ""):
@@ -82,9 +91,11 @@ def ingest(resume_path: str, repo_sources: list[str], github_user: str = ""):
         logger.info("ingestion.engineer_parsed", name=engineer_name)
 
     sources = list(repo_sources)
+    visibility: dict[str, bool] = {}
     if github_user:
         logger.info("ingestion.fetch_github", username=github_user)
-        sources.extend(fetch_github_repos(github_user, token))
+        gh_urls, visibility = fetch_github_repos(github_user, token)
+        sources.extend(gh_urls)
 
     for source in sources:
         name = source.rstrip("/").split("/")[-1]
@@ -95,12 +106,14 @@ def ingest(resume_path: str, repo_sources: list[str], github_user: str = ""):
             else:
                 repo_path = Path(source)
             build_graph(repo_path, neo4j_client, embed_client, chat_client)
-            # Link engineer to repo
+            # Link engineer to repo and store visibility
+            is_private = visibility.get(repo_path.name, False)
             with neo4j_client.driver.session() as session:
                 session.run(
                     "MATCH (e:Engineer {name: $eng}), (r:Repository {name: $repo}) "
-                    "MERGE (e)-[:OWNS]->(r)",
-                    eng=engineer_name, repo=repo_path.name,
+                    "MERGE (e)-[:OWNS]->(r) "
+                    "SET r.private = $private",
+                    eng=engineer_name, repo=repo_path.name, private=is_private,
                 )
             logger.log_ingestion_step(step="repo_done", detail=name)
         except Exception as e:
