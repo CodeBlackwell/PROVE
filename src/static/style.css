@@ -309,13 +309,12 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
 
 
   #chat-panel {
-    flex: 1;
+    flex: 0 0 auto;
     min-height: 0;
     padding: 0.5rem 0.6rem;
     border-radius: 10px;
     background: rgba(250, 247, 242, 0.78);
     overflow-y: auto;
-    transition: flex 1.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   #graph-panel {
