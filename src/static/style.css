@@ -255,12 +255,13 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   }
 
   .left-col {
-    flex: 0 0 auto;
+    flex: 1;
     min-height: 0;
     gap: 0;
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
     transition: max-height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
