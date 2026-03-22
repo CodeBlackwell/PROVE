@@ -276,26 +276,44 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
     border-radius: 10px;
   }
 
-  /* Graph collapse toggle */
+  /* Graph collapse toggle — gradient bar with arrow */
   .graph-collapse {
     display: flex;
     align-items: center;
     justify-content: center;
     width: 100%;
-    padding: 0.15rem 0;
-    background: none;
+    padding: 0.5rem 0;
+    margin: 0.2rem 0;
+    background: linear-gradient(to bottom,
+      rgba(212, 205, 196, 0.0) 0%,
+      rgba(212, 205, 196, 0.25) 30%,
+      rgba(196, 184, 168, 0.45) 100%);
     border: none;
+    border-radius: 8px;
     color: var(--ink-faint);
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    min-height: 32px;
+  }
+
+  .graph-collapse svg {
     transition: transform 0.3s ease;
   }
 
-  .graph-collapsed .graph-collapse {
+  .graph-collapsed .graph-collapse svg {
     transform: rotate(180deg);
   }
 
+  .graph-collapsed .graph-collapse {
+    background: linear-gradient(to top,
+      rgba(212, 205, 196, 0.0) 0%,
+      rgba(212, 205, 196, 0.25) 30%,
+      rgba(196, 184, 168, 0.45) 100%);
+  }
+
   .graph-collapsed #graph-panel {
-    display: none;
+    display: none !important;
   }
 
   .graph-collapsed #chat-panel {
