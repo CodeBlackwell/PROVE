@@ -30,11 +30,9 @@ echo "==> Stopping app and neo4j..."
 docker compose -f "$COMPOSE_FILE" stop app neo4j
 
 echo "==> Loading dump into Neo4j..."
-CONTAINER=$(docker compose -f "$COMPOSE_FILE" ps -q neo4j -a)
-docker cp "$DUMP_FILE" "$CONTAINER:/data/dumps/neo4j.dump"
-
-docker compose -f "$COMPOSE_FILE" run --rm neo4j neo4j-admin database load neo4j --from-path=/data/dumps --overwrite-destination 2>/dev/null || \
-docker compose -f "$COMPOSE_FILE" run --rm neo4j neo4j-admin load --database=neo4j --from=/data/dumps/neo4j.dump --force
+cp "$DUMP_FILE" "$DUMP_DIR/neo4j.dump"
+docker compose -f "$COMPOSE_FILE" run --rm -v "$DUMP_DIR:/dumps" neo4j \
+    neo4j-admin database load neo4j --from-path=/dumps --overwrite-destination
 
 echo "==> Starting services..."
 docker compose -f "$COMPOSE_FILE" up -d

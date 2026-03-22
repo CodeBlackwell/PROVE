@@ -17,17 +17,18 @@ mkdir -p "$DUMP_DIR"
 echo "==> Stopping app to ensure clean dump..."
 docker compose -f "$COMPOSE_FILE" stop app
 
+echo "==> Stopping neo4j for clean dump..."
+docker compose -f "$COMPOSE_FILE" stop neo4j
+
 echo "==> Dumping Neo4j database..."
-docker compose -f "$COMPOSE_FILE" exec neo4j neo4j-admin database dump neo4j --to-path=/data/dumps --overwrite-destination 2>/dev/null || \
-docker compose -f "$COMPOSE_FILE" exec neo4j neo4j-admin dump --database=neo4j --to=/data/dumps/neo4j.dump
+docker compose -f "$COMPOSE_FILE" run --rm -v "$DUMP_DIR:/dumps" neo4j \
+    neo4j-admin database dump neo4j --to-path=/dumps --overwrite-destination
 
-# Copy dump out of container
-CONTAINER=$(docker compose -f "$COMPOSE_FILE" ps -q neo4j)
-docker cp "$CONTAINER:/data/dumps/neo4j.dump" "$DUMP_FILE" 2>/dev/null || \
-docker cp "$CONTAINER:/data/dumps/neo4j/neo4j.dump" "$DUMP_FILE"
+echo "==> Moving dump file..."
+mv "$DUMP_DIR/neo4j.dump" "$DUMP_FILE"
 
-echo "==> Restarting app..."
-docker compose -f "$COMPOSE_FILE" start app
+echo "==> Restarting services..."
+docker compose -f "$COMPOSE_FILE" up -d
 
 SIZE=$(du -h "$DUMP_FILE" | cut -f1)
 echo "==> Uploading $DUMP_FILE ($SIZE) to $S3_BUCKET/neo4j/$TAG.dump..."
