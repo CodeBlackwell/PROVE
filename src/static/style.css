@@ -725,9 +725,9 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
 #chat-form {
   display: flex;
   align-items: end;
-  gap: 0.5rem;
+  gap: 0.4rem;
   border-top: 1px solid rgba(212, 205, 196, 0.4);
-  padding-top: 1rem;
+  padding-top: 0.5rem;
   background: transparent;
 }
 
@@ -737,9 +737,9 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   border-bottom: 1px solid var(--stone);
   background: transparent;
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 0.85rem;
   color: var(--ink);
-  padding: 0.5rem 0;
+  padding: 0.3rem 0;
   outline: none;
 }
 
