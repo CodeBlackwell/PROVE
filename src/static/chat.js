@@ -4,6 +4,31 @@ const input = document.getElementById('chat-input');
 
 let sessionId = null;
 let heroFaded = false;
+const isMobileChat = window.innerWidth < 768;
+
+/* ── Mobile: content-driven chat height ───────────────────── */
+
+function resizeChatPanel() {
+  if (!isMobileChat) return;
+  const leftCol = document.querySelector('.left-col');
+  if (!leftCol) return;
+
+  const hero = document.querySelector('.hero');
+  const heroH = hero ? hero.getBoundingClientRect().height : 0;
+  const formH = form ? form.getBoundingClientRect().height : 40;
+  const msgsContent = messages ? messages.scrollHeight : 0;
+
+  // Content height = hero + messages + form + padding
+  const contentH = heroH + msgsContent + formH + 24;
+  const maxH = window.innerHeight * 0.95;
+
+  leftCol.style.maxHeight = Math.min(contentH, maxH) + 'px';
+}
+
+// Initial size on load
+if (isMobileChat) {
+  requestAnimationFrame(resizeChatPanel);
+}
 
 /* ── Rate-limit modal ──────────────────────────────────────── */
 
@@ -81,6 +106,7 @@ function addMessage(role, content) {
     div.textContent = content;
   }
   messages.appendChild(div);
+  resizeChatPanel();
   return div;
 }
 
@@ -89,6 +115,7 @@ function addLoading() {
   div.className = 'msg msg-assistant loading';
   div.innerHTML = '<span></span><span></span><span></span>';
   messages.appendChild(div);
+  resizeChatPanel();
   return div;
 }
 
@@ -222,6 +249,7 @@ form.addEventListener('submit', e => {
     el.className = 'status-step status-step--active';
     el.innerHTML = '<span class="status-icon">●</span> ' + text;
     stepsEl.appendChild(el);
+    resizeChatPanel();
   }
 
   function collapseStatus() {
@@ -268,7 +296,7 @@ form.addEventListener('submit', e => {
       if (loader.parentNode) loader.remove();
       collapseStatus();
       if (!assistantDiv) assistantDiv = addMessage('assistant', data);
-      else { assistantDiv.innerHTML = renderMarkdown(data); renderMermaidBlocks(assistantDiv); }
+      else { assistantDiv.innerHTML = renderMarkdown(data); renderMermaidBlocks(assistantDiv); resizeChatPanel(); }
       /* no auto-scroll — let the user read at their own pace */
     }
   }

@@ -245,6 +245,7 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
 
   main {
     flex-direction: column;
+    justify-content: flex-end;
     height: 100dvh;
     height: 100vh;
     height: 100dvh;
@@ -254,14 +255,13 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   }
 
   .left-col {
-    flex: 1;
+    flex: 0 0 auto;
     min-height: 0;
     gap: 0;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    /* Allow full height when graph panel is hidden */
-    max-height: 100%;
+    transition: max-height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   /* Hero with smooth fade */
