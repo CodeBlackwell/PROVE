@@ -230,6 +230,9 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   text-shadow: 0 1px 8px rgba(245, 240, 235, 0.8);
 }
 
+/* Hidden on desktop — mobile-only toggle */
+.graph-collapse { display: none; }
+
 /* ── Mobile: tablets & small laptops ────────── */
 @media (max-width: 768px) {
   body {
@@ -258,14 +261,45 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
     flex-direction: column;
   }
 
-  /* Close the gap between hero and chat — merge into one visual block */
+  /* Small gap between hero and chat */
   .hero {
     padding: 0.6rem 0.8rem;
-    border-radius: 10px 10px 0 0;
+    border-radius: 10px;
     background: rgba(234, 213, 182, 0.82);
+    margin-bottom: 0.35rem;
     max-height: 500px;
     overflow: hidden;
     transition: max-height 0.6s ease, padding 0.6s ease, opacity 0.5s ease, margin 0.6s ease;
+  }
+
+  #chat-panel {
+    border-radius: 10px;
+  }
+
+  /* Graph collapse toggle */
+  .graph-collapse {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.15rem 0;
+    background: none;
+    border: none;
+    color: var(--ink-faint);
+    cursor: pointer;
+    transition: transform 0.3s ease;
+  }
+
+  .graph-collapsed .graph-collapse {
+    transform: rotate(180deg);
+  }
+
+  .graph-collapsed #graph-panel {
+    display: none;
+  }
+
+  .graph-collapsed #chat-panel {
+    flex: 1;
   }
 
   /* After first question: fade hero, reclaim space for chat + viz */

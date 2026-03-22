@@ -5,6 +5,15 @@ const input = document.getElementById('chat-input');
 let sessionId = null;
 let heroFaded = false;
 
+/* ── Graph panel collapse (mobile) ────────────────────────── */
+
+const collapseBtn = document.getElementById('graph-collapse');
+if (collapseBtn) {
+  collapseBtn.addEventListener('click', () => {
+    document.body.classList.toggle('graph-collapsed');
+  });
+}
+
 /* ── Rate-limit modal ──────────────────────────────────────── */
 
 let rateModal = null;
