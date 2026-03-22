@@ -1,5 +1,6 @@
 import json
 import hashlib
+import os
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -59,14 +60,36 @@ def _visitor_id(request: Request, fp: str | None = None) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
+_BOT_UA_FRAGMENTS = (
+    "facebookexternalhit", "twitterbot", "slackbot", "linkedinbot",
+    "whatsapp", "telegrambot", "discordbot", "googlebot", "bingbot",
+    "applebot", "iframely", "opengraph", "embedly", "showyoubot",
+    "outbrain", "pinterestbot", "bitlybot",
+)
+
+BYPASS_TOKEN = os.getenv("RATE_LIMIT_BYPASS", "")
+
+
 def _is_local(request: Request) -> bool:
     ip = request.client.host if request.client else ""
     return ip in ("127.0.0.1", "::1", "localhost")
 
 
+def _skip_limit(request: Request) -> bool:
+    """Skip rate limiting for localhost, known bots, or bypass token."""
+    if _is_local(request):
+        return True
+    # Bypass via secret header (for owner testing)
+    if BYPASS_TOKEN and request.headers.get("x-bypass-token") == BYPASS_TOKEN:
+        return True
+    # Exempt crawlers/bots so link previews always work
+    ua = (request.headers.get("user-agent") or "").lower()
+    return any(bot in ua for bot in _BOT_UA_FRAGMENTS)
+
+
 def _check_limit(visitor_id: str, bucket: str, request: Request | None = None) -> JSONResponse | None:
-    """Return a 429 response if rate limited, else None. Skips for localhost."""
-    if request and _is_local(request):
+    """Return a 429 response if rate limited, else None. Skips for localhost, bots, and bypass token."""
+    if request and _skip_limit(request):
         return None
     max_req, window = RATE_LIMITS[bucket]
     allowed, remaining = db.check_rate_limit(visitor_id, bucket, max_req, window)
