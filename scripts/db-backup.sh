@@ -21,7 +21,8 @@ echo "==> Stopping neo4j for clean dump..."
 docker compose -f "$COMPOSE_FILE" stop neo4j
 
 echo "==> Dumping Neo4j database..."
-docker compose -f "$COMPOSE_FILE" run --rm -v "$DUMP_DIR:/dumps" neo4j \
+chmod 777 "$DUMP_DIR"
+docker compose -f "$COMPOSE_FILE" run --rm --user "$(id -u):$(id -g)" -v "$DUMP_DIR:/dumps" neo4j \
     neo4j-admin database dump neo4j --to-path=/dumps --overwrite-destination
 
 echo "==> Moving dump file..."
