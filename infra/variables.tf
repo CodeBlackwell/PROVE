@@ -1,3 +1,9 @@
+variable "aws_profile" {
+  description = "AWS CLI profile for authentication"
+  type        = string
+  default     = "prove-terraform"
+}
+
 variable "domain" {
   description = "CDN subdomain for static assets"
   type        = string
