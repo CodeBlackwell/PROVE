@@ -167,8 +167,14 @@ def _link_chunk_skills(session, chunk, rel_path, chunk_skills, repo_path):
 
 
 def _walk_code_files(repo_path: Path):
-    for item in sorted(repo_path.rglob("*")):
-        if any(skip in item.parts for skip in SKIP_DIRS):
-            continue
-        if item.is_file() and item.suffix.lower() in CODE_EXTENSIONS:
-            yield item
+    import os
+    for dirpath, dirnames, filenames in os.walk(repo_path, topdown=True):
+        # Prune skipped dirs and nested git repos in-place
+        dirnames[:] = [
+            d for d in dirnames
+            if d not in SKIP_DIRS
+            and not (Path(dirpath) / d / ".git").exists()
+        ]
+        for fname in sorted(filenames):
+            if Path(fname).suffix.lower() in CODE_EXTENSIONS:
+                yield Path(dirpath) / fname
