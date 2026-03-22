@@ -45,7 +45,9 @@ def build_graph(repo_path, neo4j_client, embed_client, chat_client):
     repo_name = repo_path.name
     file_count = 0
 
-    logger.info("graph.build_start", repo=repo_name)
+    all_files = list(_walk_code_files(repo_path))
+    total_files = len(all_files)
+    logger.info("graph.build_start", repo=repo_name, total_files=total_files)
 
     default_branch = _detect_default_branch(repo_path)
 
@@ -55,7 +57,7 @@ def build_graph(repo_path, neo4j_client, embed_client, chat_client):
             name=repo_name, path=str(repo_path), branch=default_branch,
         )
 
-        for file_path in _walk_code_files(repo_path):
+        for file_path in all_files:
             rel_path = str(file_path.relative_to(repo_path))
             session.run(
                 "MATCH (r:Repository {name: $repo}) "
@@ -141,8 +143,10 @@ def build_graph(repo_path, neo4j_client, embed_client, chat_client):
                 _link_chunk_skills(session, chunk, rel_path, chunk_skills, repo_path)
 
             file_count += 1
-            if file_count % 25 == 0:
-                logger.info("graph.progress", repo=repo_name, files_processed=file_count)
+            pct = int(file_count / total_files * 100) if total_files else 0
+            logger.info("graph.progress", repo=repo_name,
+                        files_processed=file_count, total_files=total_files,
+                        percent=pct)
 
     logger.info("graph.build_done", repo=repo_name, files_total=file_count)
     neo4j_client.compute_repo_rollups(repo_name)
