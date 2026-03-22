@@ -6,6 +6,7 @@ from voyageai.error import RateLimitError
 from src.core import logger
 
 EMBED_DIMENSIONS = 1024
+MAX_BATCH = 128  # Voyage allows 1000, but smaller batches avoid token limits
 INPUT_TYPE_MAP = {"passage": "document", "query": "query"}
 
 
@@ -15,6 +16,13 @@ class VoyageClient:
 
     def embed(self, texts: list[str], input_type: str = "passage",
               model: str = "voyage-3.5") -> list[list[float]]:
+        # Auto-batch to stay within Voyage's 1000-item limit
+        if len(texts) > MAX_BATCH:
+            all_embeddings = []
+            for i in range(0, len(texts), MAX_BATCH):
+                all_embeddings.extend(self.embed(texts[i:i + MAX_BATCH], input_type, model))
+            return all_embeddings
+
         voyage_input_type = INPUT_TYPE_MAP.get(input_type, input_type)
         for attempt in range(10):
             try:
