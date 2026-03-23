@@ -83,8 +83,8 @@
   <link rel="dns-prefetch" href="https://d3js.org" />
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
 
-  <link rel="preload" href="{{ cdn_base }}/static/style.css" as="style" />
-  <link rel="stylesheet" href="{{ cdn_base }}/static/style.css">
+  <link rel="preload" href="{{ cdn_base }}/static/style.css?v={{ static_v }}" as="style" />
+  <link rel="stylesheet" href="{{ cdn_base }}/static/style.css?v={{ static_v }}">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Noto+Sans+JP:wght@300;400&display=swap" rel="stylesheet">
 </head>
 <body class="is-loading">
@@ -166,10 +166,10 @@
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
   <script>mermaid.initialize({ startOnLoad: false, theme: 'neutral', themeVariables: { fontSize: '14px' } });</script>
-  <script src="{{ cdn_base }}/static/fingerprint.js"></script>
-  <script src="{{ cdn_base }}/static/graph.js"></script>
-  <script src="{{ cdn_base }}/static/chat.js"></script>
-  <script src="{{ cdn_base }}/static/jd.js"></script>
+  <script src="{{ cdn_base }}/static/fingerprint.js?v={{ static_v }}"></script>
+  <script src="{{ cdn_base }}/static/graph.js?v={{ static_v }}"></script>
+  <script src="{{ cdn_base }}/static/chat.js?v={{ static_v }}"></script>
+  <script src="{{ cdn_base }}/static/jd.js?v={{ static_v }}"></script>
   <script>
     (function() {
       const bg = new Image();

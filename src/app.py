@@ -21,6 +21,16 @@ settings = Settings.load()
 clients = build_clients(settings)
 db = clients["db"]
 
+# Cache-bust key: hash of all static files so browsers refetch on deploy
+def _static_hash() -> str:
+    h = hashlib.md5()
+    static_dir = Path(__file__).parent / "static"
+    for f in sorted(static_dir.glob("*.css")) + sorted(static_dir.glob("*.js")):
+        h.update(f.read_bytes())
+    return h.hexdigest()[:8]
+
+STATIC_V = _static_hash()
+
 # Attach SQLite as additional log sink (after DB is created)
 logger.attach_db(db)
 
@@ -113,6 +123,7 @@ def index(request: Request):
         "request": request, "name": name,
         "github_owner": settings.github_owner,
         "cdn_base": settings.cdn_base,
+        "static_v": STATIC_V,
     })
 
 
@@ -369,7 +380,7 @@ def skill_page(request: Request, skill_slug: str):
 
     if not meta:
         return templates.TemplateResponse("skill.html", {
-            "request": request, "skill": None, "cdn_base": settings.cdn_base,
+            "request": request, "skill": None, "cdn_base": settings.cdn_base, "static_v": STATIC_V,
         }, status_code=404)
 
     with neo4j.driver.session() as s:
@@ -410,6 +421,7 @@ def skill_page(request: Request, skill_slug: str):
         },
         "engineer_name": eng["name"] if eng else "Engineer",
         "cdn_base": settings.cdn_base,
+        "static_v": STATIC_V,
         "github_owner": settings.github_owner,
     })
 
