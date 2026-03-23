@@ -215,7 +215,7 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
 
 .hero__tagline {
   font-family: "Noto Sans JP", -apple-system, sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   font-weight: 700;
   color: var(--accent);
   letter-spacing: 0.14em;
@@ -236,7 +236,7 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
 
 .hero__prove {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 0.88rem;
+  font-size: 1rem;
   font-weight: 400;
   color: var(--ink-faint);
   margin-top: 0.5rem;
@@ -384,8 +384,8 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
 
   .msg {
     margin-bottom: 0.6rem;
-    font-size: 0.88rem;
-    line-height: 1.45;
+    font-size: 0.95rem;
+    line-height: 1.5;
   }
 
   .msg-assistant pre {
@@ -572,7 +572,7 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
 
   .msg {
     margin-bottom: 0.5rem;
-    font-size: 0.82rem;
+    font-size: 0.88rem;
   }
 
   /* Tap targets — full 48px minimum */
@@ -652,7 +652,7 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   padding-bottom: 1rem;
 }
 
-.msg { margin-bottom: 1.2rem; max-width: 100%; }
+.msg { margin-bottom: 1.2rem; max-width: 100%; font-size: 1rem; line-height: 1.65; }
 .msg-user { color: var(--ink); font-weight: 400; }
 .msg-user::before { content: "› "; color: var(--accent); }
 
@@ -695,7 +695,7 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   border-radius: 20px;
   padding: 0.45rem 0.9rem;
   font-family: inherit;
-  font-size: 0.82rem;
+  font-size: 0.92rem;
   color: var(--ink-light);
   cursor: pointer;
   transition: background 0.2s, color 0.2s, border-color 0.2s;
@@ -740,7 +740,7 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   border-bottom: 1px solid var(--stone);
   background: transparent;
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: 1rem;
   color: var(--ink);
   padding: 0.3rem 0;
   outline: none;
@@ -751,8 +751,8 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
 
 .jd-btn {
   flex-shrink: 0;
-  background: none;
-  border: 1px solid var(--stone);
+  background: var(--ink);
+  border: 1px solid var(--ink);
   border-radius: 50%;
   width: 30px;
   height: 30px;
@@ -760,12 +760,12 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: var(--ink-faint);
-  transition: color 0.15s, border-color 0.15s;
+  color: var(--bg);
+  transition: background 0.15s, border-color 0.15s;
   margin-bottom: 0.35rem;
 }
 
-.jd-btn:hover { color: var(--accent); border-color: var(--accent); }
+.jd-btn:hover { background: var(--accent); border-color: var(--accent); }
 
 /* Loading dots */
 .loading span {
@@ -806,8 +806,81 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
   color: var(--ink-light);
-  font-size: 0.95rem;
+  font-size: 1rem;
   text-shadow: 0 1px 6px rgba(245, 240, 235, 0.8);
+}
+
+/* ── Graph how-to overlay ────────────────────── */
+.graph-howto {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 420px;
+  width: 85%;
+  padding: 2rem 2.2rem;
+  color: var(--ink-light);
+  text-shadow: 0 1px 6px rgba(245, 240, 235, 0.8);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.graph-howto--hidden {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.97);
+  pointer-events: none;
+}
+
+.graph-howto__title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 1.2rem;
+  letter-spacing: 0.02em;
+}
+
+.graph-howto__steps {
+  list-style: none;
+  counter-reset: howto;
+  padding: 0;
+  margin: 0 0 1.2rem;
+}
+
+.graph-howto__steps li {
+  counter-increment: howto;
+  position: relative;
+  padding-left: 2rem;
+  margin-bottom: 0.9rem;
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.graph-howto__steps li::before {
+  content: counter(howto);
+  position: absolute;
+  left: 0;
+  top: 0.05em;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  background: rgba(107, 76, 42, 0.12);
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.graph-howto__steps li strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.graph-howto__hint {
+  font-size: 0.92rem;
+  color: var(--ink-faint);
+  font-style: italic;
+  line-height: 1.5;
 }
 
 .legend {

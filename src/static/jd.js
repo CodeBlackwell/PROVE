@@ -1,5 +1,11 @@
 /* ── JD Match Modal ─────────────────────────────────────────── */
 
+function _esc(s) {
+  var d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
 let jdModal = null;
 let jdFile = null;
 
@@ -75,7 +81,7 @@ function _setFile(file) {
   label.hidden = true;
   fileEl.hidden = false;
   fileEl.innerHTML =
-    '<span class="jd-drop__filename">' + file.name + '</span>' +
+    '<span class="jd-drop__filename">' + _esc(file.name) + '</span>' +
     '<button class="jd-drop__clear" type="button">&times;</button>';
   fileEl.querySelector('.jd-drop__clear').addEventListener('click', e => { e.stopPropagation(); _clearFile(); });
   _updateAnalyzeState();
@@ -168,7 +174,7 @@ function _runAnalysis() {
     .catch(err => {
       _hideLoading();
       if (err.message !== 'rate_limited') {
-        results.innerHTML = '<p class="jd-results__error">' + err.message + '</p>';
+        results.innerHTML = '<p class="jd-results__error">' + _esc(err.message) + '</p>';
         results.hidden = false;
       }
     });
@@ -191,7 +197,7 @@ function _renderResults(el, data) {
       '<div class="jd-results__pct">' + pct + '%</div>' +
       '<div class="jd-results__label">Match</div>' +
     '</div>' +
-    '<p class="jd-results__summary">' + data.summary + '</p>' +
+    '<p class="jd-results__summary">' + _esc(data.summary) + '</p>' +
     '<div class="jd-results__reqs">';
 
   for (let i = 0; i < data.requirements.length; i++) {
@@ -206,8 +212,8 @@ function _renderResults(el, data) {
     html +=
       '<button class="jd-req-acc" data-idx="' + i + '">' +
         '<span class="jd-req-acc__arrow">\u25B8</span>' +
-        '<span class="jd-req-acc__name">' + r.requirement + '</span>' +
-        '<span class="jd-conf ' + cls + '">' + r.confidence + '</span>' +
+        '<span class="jd-req-acc__name">' + _esc(r.requirement) + '</span>' +
+        '<span class="jd-conf ' + cls + '">' + _esc(r.confidence) + '</span>' +
         (snippetLabel ? '<span class="jd-req-acc__count">' + snippetLabel + '</span>' : '') +
       '</button>';
 
@@ -222,10 +228,10 @@ function _renderResults(el, data) {
         const lock = e.private ? ' <span class="tip-lock" title="Private repo">\u{1F512}</span>' : '';
         html +=
           '<div class="jd-evidence__item">' +
-            '<a href="' + url + '" target="_blank" class="jd-evidence__link">' +
-              (e.repo || '') + '/' + shortPath + '#' + lineRange +
+            '<a href="' + _esc(url) + '" target="_blank" rel="noopener noreferrer" class="jd-evidence__link">' +
+              _esc((e.repo || '') + '/' + shortPath + '#' + lineRange) +
             '</a>' + lock +
-            (e.context ? '<div class="jd-evidence__ctx">' + e.context + '</div>' : '') +
+            (e.context ? '<div class="jd-evidence__ctx">' + _esc(e.context) + '</div>' : '') +
           '</div>';
       }
       html += '</div>';

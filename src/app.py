@@ -269,6 +269,9 @@ def skill_references(request: Request, skill_name: str):
 # JD Match endpoint
 # ---------------------------------------------------------------------------
 
+_MAX_UPLOAD_BYTES = 2 * 1024 * 1024  # 2 MB
+_MAX_TEXT_CHARS = 50_000  # ~12 pages of text
+
 @app.post("/api/jd-match")
 async def jd_match(request: Request, file: UploadFile = File(None),
                    text: str = Form(None), fp: str = Form(None)):
@@ -278,12 +281,16 @@ async def jd_match(request: Request, file: UploadFile = File(None),
         return blocked
 
     if file and file.filename:
-        content = await file.read()
+        content = await file.read(_MAX_UPLOAD_BYTES + 1)
+        if len(content) > _MAX_UPLOAD_BYTES:
+            return JSONResponse({"error": "File too large (2 MB max)"}, status_code=400)
         try:
             jd_text = extract_text(file.filename, content)
         except ValueError as e:
             return JSONResponse({"error": str(e)}, status_code=400)
     elif text:
+        if len(text) > _MAX_TEXT_CHARS:
+            return JSONResponse({"error": "Text too long (50,000 char max)"}, status_code=400)
         jd_text = text
     else:
         return JSONResponse({"error": "Provide a file or text"}, status_code=400)

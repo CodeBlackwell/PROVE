@@ -64,14 +64,21 @@ function closeRateLimitModal() {
 
 /* ── Markdown / messages ───────────────────────────────────── */
 
+function _escChat(s) {
+  var d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
 function renderMarkdown(text) {
-  return text
+  // Escape HTML first, then apply markdown transforms
+  return _escChat(text)
     .replace(/```mermaid\n([\s\S]*?)```/g, '<div class="mermaid">$1</div>')
     .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
     .replace(/^### (.+)$/gm, '<h4>$1</h4>')
     .replace(/^## (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+    .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
@@ -205,6 +212,11 @@ form.addEventListener('submit', e => {
   if (!heroFaded) {
     heroFaded = true;
     document.body.classList.add('hero-faded');
+    // Dismiss the graph how-to overlay, reveal the empty-state text
+    const howto = document.getElementById('graph-howto');
+    if (howto) howto.classList.add('graph-howto--hidden');
+    const empty = document.querySelector('.graph-empty');
+    if (empty) empty.style.display = '';
   }
 
   addMessage('user', q);

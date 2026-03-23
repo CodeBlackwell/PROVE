@@ -939,6 +939,8 @@ window.updateGraph = function (data) {
   state.update(data);
   const empty = document.querySelector('.graph-empty');
   if (empty && !state.empty) empty.style.display = 'none';
+  const howto = document.getElementById('graph-howto');
+  if (howto && !state.empty) howto.classList.add('graph-howto--hidden');
   updateFilterBar();
   renderCurrent();
 };
