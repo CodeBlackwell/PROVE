@@ -122,10 +122,15 @@
       <section id="chat-panel" aria-label="Chat with AI assistant">
         <div id="messages" role="log" aria-live="polite" aria-label="Chat messages"></div>
         <form id="chat-form" aria-label="Ask a question">
-          <input type="text" id="chat-input" placeholder="Ask about skills, experience, code… or upload a JD →" autocomplete="off" aria-label="Type your question">
           <button type="button" class="jd-btn" id="jd-btn" title="Analyze a job description">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </button>
+          <input type="text" id="chat-input" placeholder="Ask about skills, experience, code…" autocomplete="off" aria-label="Type your question">
+          <button type="submit" class="send-btn" id="send-btn" title="Send message" aria-label="Send message">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
             </svg>
           </button>
         </form>
