@@ -746,8 +746,8 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   background: var(--ink);
   border: 1px solid var(--ink);
   border-radius: 50%;
-  width: 30px;
-  height: 30px;
+  width: 21px;
+  height: 21px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -756,6 +756,7 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   transition: background 0.15s, border-color 0.15s;
   margin-bottom: 0.35rem;
 }
+.jd-btn svg { width: 11px; height: 11px; }
 
 .jd-btn:hover { background: var(--accent); border-color: var(--accent); }
 
@@ -764,8 +765,8 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   background: var(--accent);
   border: 1px solid var(--accent);
   border-radius: 50%;
-  width: 30px;
-  height: 30px;
+  width: 21px;
+  height: 21px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -774,18 +775,21 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   transition: background 0.15s, opacity 0.15s;
   margin-bottom: 0.35rem;
 }
+.send-btn svg { width: 11px; height: 11px; }
 .send-btn:hover { opacity: 0.85; }
 
 /* Mobile overrides — must come after base rules to win cascade */
 @media (max-width: 768px) {
   #chat-panel { padding: 0.5rem 0.6rem; overflow-y: auto; }
-  .jd-btn { width: 36px; height: 36px; }
-  .send-btn { width: 36px; height: 36px; }
+  .jd-btn { width: 25px; height: 25px; }
+  .jd-btn svg { width: 13px; height: 13px; }
+  .send-btn { width: 25px; height: 25px; }
+  .send-btn svg { width: 13px; height: 13px; }
 }
 @media (max-width: 480px) {
   #chat-panel { padding: 0.3rem 0.5rem; }
-  .jd-btn { width: 38px; height: 38px; }
-  .send-btn { width: 38px; height: 38px; }
+  .jd-btn { width: 27px; height: 27px; }
+  .send-btn { width: 27px; height: 27px; }
 }
 
 /* Loading dots */
