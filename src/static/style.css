@@ -636,6 +636,16 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   flex: 1;
   overflow-y: auto;
   padding-bottom: 1rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(138, 131, 128, 0.25) transparent;
+}
+#messages::-webkit-scrollbar { width: 6px; }
+#messages::-webkit-scrollbar-track { background: transparent; }
+#messages::-webkit-scrollbar-thumb {
+  background: rgba(138, 131, 128, 0.25);
+  border-radius: 3px;
+}
+#messages::-webkit-scrollbar-thumb:hover { background: rgba(138, 131, 128, 0.45); }
 }
 
 .msg { margin-bottom: 1.2rem; max-width: 100%; font-size: 1rem; line-height: 1.65; }
@@ -1089,7 +1099,8 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
 .bar-row text { font-family: inherit; }
 
 .viz-tooltip {
-  position: absolute;
+  position: fixed;
+  left: 0; top: 0;
   padding: 0.6rem 0.8rem;
   background: rgba(250, 247, 242, 0.85);
   backdrop-filter: blur(12px);
@@ -1098,16 +1109,14 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   border-radius: 10px;
   font-size: 0.75rem;
   color: var(--ink);
-  pointer-events: auto;
+  pointer-events: none;
   opacity: 0;
-  transition: opacity 0.15s, left 0.08s ease-out, top 0.08s ease-out;
+  transition: opacity 0.15s;
   z-index: 10;
+  will-change: transform;
   font-family: inherit;
   max-width: 280px;
-  max-height: 260px;
-  overflow-y: auto;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
-}
 .viz-tooltip--visible { opacity: 1; }
 
 .tip-prof {
@@ -1425,7 +1434,16 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   padding: 0.6rem 1.4rem 1.2rem;
   flex: 1;
   min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(138, 131, 128, 0.3) transparent;
 }
+.ref-modal__body::-webkit-scrollbar { width: 6px; }
+.ref-modal__body::-webkit-scrollbar-track { background: transparent; }
+.ref-modal__body::-webkit-scrollbar-thumb {
+  background: rgba(138, 131, 128, 0.3);
+  border-radius: 3px;
+}
+.ref-modal__body::-webkit-scrollbar-thumb:hover { background: rgba(138, 131, 128, 0.5); }
 
 /* Repo group */
 .ref-repo { margin-bottom: 1rem; }

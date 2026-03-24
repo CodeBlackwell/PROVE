@@ -291,22 +291,29 @@ function ensureTooltip() {
   if (!tooltip) {
     tooltip = document.createElement('div');
     tooltip.className = 'viz-tooltip';
-    document.getElementById('graph-panel').appendChild(tooltip);
+    document.body.appendChild(tooltip);
   }
   return tooltip;
 }
 
 function _positionTooltip(evt) {
   const tt = ensureTooltip();
-  const panel = document.getElementById('graph-panel').getBoundingClientRect();
-  let left = evt.clientX - panel.left + 14;
-  let top = evt.clientY - panel.top - 10;
-  // Clamp so tooltip doesn't overflow right/bottom
-  const maxW = panel.width - 20;
-  if (left + 280 > maxW) left = maxW - 280;
-  if (left < 4) left = 4;
-  tt.style.left = left + 'px';
-  tt.style.top = top + 'px';
+  const ttW = tt.offsetWidth || 280;
+  const ttH = tt.offsetHeight || 100;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  // Default: right of cursor, above cursor
+  let x = evt.clientX + 14;
+  let y = evt.clientY - ttH - 10;
+  // Flip right → left if overflowing right
+  if (x + ttW > vw - 8) x = evt.clientX - ttW - 10;
+  // Flip above → below if overflowing top
+  if (y < 4) y = evt.clientY + 18;
+  // Final clamp
+  if (x < 4) x = 4;
+  if (y + ttH > vh - 4) y = vh - ttH - 4;
+  if (y < 4) y = 4;
+  tt.style.transform = `translate(${x}px, ${y}px)`;
 }
 
 function showTooltip(evt, html) {
@@ -687,24 +694,24 @@ const TreemapRenderer = {
             .attr('width', d => Math.max(0, d.x1 - d.x0))
             .attr('height', d => Math.max(0, d.y1 - d.y0))
             .style('fill', 'transparent')
-            .style('cursor', 'pointer');
-
-          g.style('opacity', 0)
+            .style('cursor', 'pointer')
             .on('mouseover', (evt, d) => {
               const dom = d.parent && d.parent.parent ? d.parent.parent.data.name : '';
               showTooltip(evt, tipHtml(d.data, domainColor(dom)));
-              d3.select(evt.currentTarget).style('opacity', 1);
+              d3.select(evt.target.parentNode).style('opacity', 1);
             })
             .on('mousemove', (evt) => { moveTooltip(evt); })
             .on('mouseout', (evt) => {
               hideTooltip();
-              d3.select(evt.currentTarget).style('opacity', 0.88);
+              d3.select(evt.target.parentNode).style('opacity', 0.88);
             })
             .on('click', (evt, d) => {
               evt.stopPropagation();
               hideTooltip();
               if (d.data.status === 'demonstrated') openRefModal(d.data.name);
-            })
+            });
+
+          g.style('opacity', 0)
             .transition().duration(500).ease(d3.easeCubicOut)
             .style('opacity', 0.88);
 
