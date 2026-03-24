@@ -43,9 +43,14 @@ def _mock_neo4j():
          "content": "class AgentBase:", "proficiency": "extensive", "related_skills": ["Design Patterns"]},
     ]
     session = MagicMock()
-    session.run.return_value = _FakeResult([
-        {"name": "Chris", "labels": ["Engineer"], "props": {"name": "Chris", "email": "chris@test.com"}},
-    ])
+    def _mock_run(query, **kwargs):
+        if "Engineer" in query:
+            return _FakeResult([
+                {"name": "Chris", "labels": ["Engineer"], "props": {"name": "Chris", "email": "chris@test.com"}},
+            ])
+        # Return empty for subgraph/competency queries
+        return _FakeResult([])
+    session.run = MagicMock(side_effect=_mock_run)
     client.driver.session.return_value.__enter__ = MagicMock(return_value=session)
     client.driver.session.return_value.__exit__ = MagicMock(return_value=False)
     return client
@@ -105,19 +110,22 @@ def test_react_loop():
     chat = _mock_chat()
     embed = _mock_embed()
 
-    tool_response = _make_chat_response(
+    tool_response_1 = _make_chat_response(
         tool_calls=[_make_tool_call("search_code", {"query": "python"})]
+    )
+    tool_response_2 = _make_chat_response(
+        tool_calls=[_make_tool_call("get_evidence", {"skill_name": "Python"}, "call_2")]
     )
     final_response = _make_chat_response(content="The engineer demonstrates Python skills.")
 
-    chat.chat = MagicMock(side_effect=[tool_response, final_response])
+    chat.chat = MagicMock(side_effect=[tool_response_1, tool_response_2, final_response])
 
     agent = QAAgent(neo4j, chat, embed)
     result = agent.answer("Does this engineer know Python?")
 
     assert "The engineer demonstrates Python skills." in result
-    # 2 ReAct calls + curate/annotate calls
-    assert chat.chat.call_count >= 2
+    # 3 ReAct calls (2 tools + final) + curate/annotate calls
+    assert chat.chat.call_count >= 3
     first_call_kwargs = chat.chat.call_args_list[0]
     tools_arg = first_call_kwargs[0][1] if len(first_call_kwargs[0]) > 1 else first_call_kwargs[1].get("tools")
     assert tools_arg is not None
@@ -232,12 +240,15 @@ def test_streaming():
     chat = _mock_chat()
     embed = _mock_embed()
 
-    tool_response = _make_chat_response(
+    tool_response_1 = _make_chat_response(
         tool_calls=[_make_tool_call("search_code", {"query": "python"})]
+    )
+    tool_response_2 = _make_chat_response(
+        tool_calls=[_make_tool_call("get_evidence", {"skill_name": "Python"}, "call_2")]
     )
     final_response = _make_chat_response(content="Streaming answer.")
 
-    chat.chat = MagicMock(side_effect=[tool_response, final_response])
+    chat.chat = MagicMock(side_effect=[tool_response_1, tool_response_2, final_response])
 
     agent = QAAgent(neo4j, chat, embed)
     chunks = list(agent.answer_stream("Does this engineer know Python?"))

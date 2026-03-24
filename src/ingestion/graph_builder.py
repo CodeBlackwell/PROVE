@@ -1,3 +1,4 @@
+import hashlib
 import subprocess
 from pathlib import Path
 
@@ -15,6 +16,10 @@ LANG_LABELS = {
     "jsx": "JavaScript", "java": "Java", "go": "Go", "rs": "Rust",
     "rb": "Ruby", "cpp": "C++", "c": "C", "h": "C/C++",
 }
+
+
+def _content_hash(content: str) -> str:
+    return hashlib.sha256(content.encode()).hexdigest()[:16]
 
 
 def build_preamble(name, language, file_path, repo_name, skills):
@@ -40,6 +45,55 @@ def _detect_default_branch(repo_path: Path) -> str:
     return "main"
 
 
+def _diff_file_chunks(session, rel_path: str, chunks, embed_prop: str):
+    """Compare parsed chunks against Neo4j and return what changed.
+
+    Returns (changed, unchanged, orphaned) where:
+      - changed: list of chunks whose content hash differs or are new
+      - unchanged: list of chunks that match existing hashes
+      - orphaned: set of snippet names in Neo4j that no longer exist in source
+    """
+    # Fetch existing snippets with their content hashes
+    existing = session.run(
+        "MATCH (cs:CodeSnippet {file_path: $fp}) "
+        "RETURN cs.name AS name, cs.content_hash AS hash, "
+        f"       cs.context AS context, cs.{embed_prop} IS NOT NULL AS embedded",
+        fp=rel_path,
+    ).data()
+    existing_map = {r["name"]: r for r in existing}
+
+    changed = []
+    unchanged = []
+    current_names = set()
+
+    for chunk in chunks:
+        current_names.add(chunk.name)
+        new_hash = _content_hash(chunk.content)
+        prev = existing_map.get(chunk.name)
+
+        if prev and prev["hash"] == new_hash and prev["embedded"]:
+            unchanged.append(chunk)
+        else:
+            changed.append(chunk)
+
+    orphaned = set(existing_map.keys()) - current_names
+    return changed, unchanged, orphaned
+
+
+def _delete_orphaned_snippets(session, rel_path: str, orphaned_names: set):
+    """Remove snippets from Neo4j that no longer exist in the source file."""
+    if not orphaned_names:
+        return
+    session.run(
+        "MATCH (cs:CodeSnippet {file_path: $fp}) "
+        "WHERE cs.name IN $names "
+        "DETACH DELETE cs",
+        fp=rel_path, names=list(orphaned_names),
+    )
+    logger.info("graph.orphan_cleanup", file=rel_path, removed=len(orphaned_names),
+                names=list(orphaned_names))
+
+
 def build_graph(repo_path, neo4j_client, embed_client, chat_client):
     repo_path = Path(repo_path)
     repo_name = repo_path.name
@@ -59,6 +113,8 @@ def build_graph(repo_path, neo4j_client, embed_client, chat_client):
             name=repo_name, path=str(repo_path), branch=default_branch,
         )
 
+    stats = {"skipped_files": 0, "unchanged_snippets": 0, "changed_snippets": 0, "orphaned_snippets": 0}
+
     for file_path in all_files:
         rel_path = str(file_path.relative_to(repo_path))
 
@@ -74,27 +130,33 @@ def build_graph(repo_path, neo4j_client, embed_client, chat_client):
             if not chunks:
                 continue
 
-            # Skip file if all chunks already embedded for this provider
-            existing = session.run(
-                f"MATCH (cs:CodeSnippet {{file_path: $fp}}) WHERE cs.{embed_prop} IS NOT NULL "
-                "RETURN count(cs) AS c",
-                fp=rel_path,
-            ).single()["c"]
-            if existing >= len(chunks):
+            # Diff against existing snippets by content hash
+            changed, unchanged, orphaned = _diff_file_chunks(session, rel_path, chunks, embed_prop)
+
+            # Clean up orphaned snippets (deleted/renamed functions)
+            _delete_orphaned_snippets(session, rel_path, orphaned)
+            stats["orphaned_snippets"] += len(orphaned)
+            stats["unchanged_snippets"] += len(unchanged)
+
+            # If nothing changed in this file, just update skill links for unchanged chunks
+            if not changed:
                 file_count += 1
-                logger.debug("graph.file_skip", file=rel_path, reason="already_embedded",
-                              chunk_count=len(chunks))
-                # Still classify skills for existing chunks
-                skills_per_chunk = classify_chunks(chunks, chat_client)
-                for chunk, chunk_skills in zip(chunks, skills_per_chunk):
-                    _link_chunk_skills(session, chunk, rel_path, chunk_skills, repo_path)
+                stats["skipped_files"] += 1
+                logger.debug("graph.file_skip", file=rel_path, reason="no_changes",
+                              unchanged=len(unchanged))
+                # Re-link skills for unchanged chunks (cheap — no LLM calls)
+                # Only needed if skill taxonomy changed; skip classify entirely
                 continue
 
-        # Classify first so skills are available for preamble
-        logger.debug("graph.classify", file=rel_path, chunk_count=len(chunks))
-        skills_per_chunk = classify_chunks(chunks, chat_client)
+            stats["changed_snippets"] += len(changed)
+            logger.debug("graph.file_diff", file=rel_path,
+                          changed=len(changed), unchanged=len(unchanged), orphaned=len(orphaned))
 
-        # Generate contextual descriptions (reuse existing if available)
+        # Only classify and embed the changed chunks
+        logger.debug("graph.classify", file=rel_path, chunk_count=len(changed))
+        skills_per_chunk = classify_chunks(changed, chat_client)
+
+        # Generate contextual descriptions for changed chunks only
         with neo4j_client.driver.session() as session:
             existing_contexts = session.run(
                 "MATCH (cs:CodeSnippet {file_path: $fp}) "
@@ -105,11 +167,11 @@ def build_graph(repo_path, neo4j_client, embed_client, chat_client):
 
         needs_context = [
             (i, c, skills)
-            for i, (c, skills) in enumerate(zip(chunks, skills_per_chunk))
+            for i, (c, skills) in enumerate(zip(changed, skills_per_chunk))
             if c.name not in ctx_map
         ]
 
-        contexts = [ctx_map.get(c.name, "") for c in chunks]
+        contexts = [ctx_map.get(c.name, "") for c in changed]
 
         if needs_context:
             snippet_dicts = [
@@ -122,28 +184,30 @@ def build_graph(repo_path, neo4j_client, embed_client, chat_client):
             for (i, _, _), ctx in zip(needs_context, new_contexts):
                 contexts[i] = ctx
 
-        # Embed with context + metadata preamble + code
+        # Embed only changed chunks
         texts = [
             (ctx + "\n" if ctx else "")
             + build_preamble(c.name, c.language, rel_path, repo_name, list(skills))
             + "\nCode:\n" + c.content
-            for c, skills, ctx in zip(chunks, skills_per_chunk, contexts)
+            for c, skills, ctx in zip(changed, skills_per_chunk, contexts)
         ]
         embeddings = embed_client.embed(texts)
 
         with neo4j_client.driver.session() as session:
-            for chunk, embedding, chunk_skills, ctx in zip(chunks, embeddings, skills_per_chunk, contexts):
+            for chunk, embedding, chunk_skills, ctx in zip(changed, embeddings, skills_per_chunk, contexts):
+                content_hash = _content_hash(chunk.content)
                 session.run(
                     "MATCH (f:File {path: $file_path}) "
                     "MERGE (cs:CodeSnippet {name: $name, file_path: $file_path}) "
                     "SET cs.content = $content, cs.start_line = $start, "
                     f"    cs.end_line = $end, cs.language = $lang, "
-                    f"    cs.{embed_prop} = $embedding, cs.context = $ctx "
+                    f"    cs.{embed_prop} = $embedding, cs.context = $ctx, "
+                    "    cs.content_hash = $hash "
                     "MERGE (f)-[:CONTAINS]->(cs)",
                     file_path=rel_path, name=chunk.name,
                     content=chunk.content, start=chunk.start_line,
                     end=chunk.end_line, lang=chunk.language,
-                    embedding=embedding, ctx=ctx,
+                    embedding=embedding, ctx=ctx, hash=content_hash,
                 )
                 _link_chunk_skills(session, chunk, rel_path, chunk_skills, repo_path)
 
@@ -153,7 +217,11 @@ def build_graph(repo_path, neo4j_client, embed_client, chat_client):
                     files_processed=file_count, total_files=total_files,
                     percent=pct)
 
-    logger.info("graph.build_done", repo=repo_name, files_total=file_count)
+    logger.info("graph.build_done", repo=repo_name, files_total=file_count,
+                skipped_files=stats["skipped_files"],
+                changed_snippets=stats["changed_snippets"],
+                unchanged_snippets=stats["unchanged_snippets"],
+                orphaned_snippets=stats["orphaned_snippets"])
     neo4j_client.compute_repo_rollups(repo_name)
     neo4j_client.compute_proficiency()
 
