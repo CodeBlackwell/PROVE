@@ -97,6 +97,9 @@ function renderMermaidBlocks(container) {
     try {
       window.mermaid.render(id, code).then(({ svg }) => {
         el.innerHTML = svg;
+        el.style.cursor = 'pointer';
+        el.title = 'Click to expand';
+        el.addEventListener('click', () => openMermaidLightbox(el));
       }).catch(() => {
         el.innerHTML = '<pre><code>' + code + '</code></pre>';
       });
@@ -104,6 +107,39 @@ function renderMermaidBlocks(container) {
       el.innerHTML = '<pre><code>' + code + '</code></pre>';
     }
   });
+}
+
+/* ── Mermaid lightbox ──────────────────────────────────────── */
+
+let mermaidLightbox = null;
+
+function openMermaidLightbox(sourceEl) {
+  if (!mermaidLightbox) {
+    mermaidLightbox = document.createElement('div');
+    mermaidLightbox.className = 'mermaid-lightbox';
+    mermaidLightbox.innerHTML =
+      '<div class="mermaid-lightbox__backdrop"></div>' +
+      '<div class="mermaid-lightbox__content"></div>';
+    document.body.appendChild(mermaidLightbox);
+    mermaidLightbox.querySelector('.mermaid-lightbox__backdrop')
+      .addEventListener('click', closeMermaidLightbox);
+    mermaidLightbox.addEventListener('click', function(e) {
+      if (e.target === mermaidLightbox) closeMermaidLightbox();
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && mermaidLightbox.classList.contains('mermaid-lightbox--open'))
+        closeMermaidLightbox();
+    });
+  }
+  var content = mermaidLightbox.querySelector('.mermaid-lightbox__content');
+  content.innerHTML = sourceEl.innerHTML;
+  // Force reflow before adding class for transition
+  void mermaidLightbox.offsetHeight;
+  mermaidLightbox.classList.add('mermaid-lightbox--open');
+}
+
+function closeMermaidLightbox() {
+  if (mermaidLightbox) mermaidLightbox.classList.remove('mermaid-lightbox--open');
 }
 
 /* ── Collapsible code blocks ──────────────────────────────── */
@@ -257,6 +293,15 @@ function _renderEvidenceList(body, byRepo, filterRepo, owner) {
       html += '</div>';
       if (ref.skill) html += '<div class="ref-item__name">' + ref.skill + '</div>';
       if (ref.context) html += '<div class="ref-item__context">' + ref.context + '</div>';
+      if (ref.content) {
+        var escaped = ref.content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        var lineCount = ref.content.split('\n').length;
+        var langCls = ref.language ? ' class="language-' + ref.language + '"' : '';
+        html += '<details class="ref-item__code-collapse">' +
+          '<summary class="ref-item__code-toggle"><span class="ref-item__code-arrow">\u25B8</span> ' + lineCount + ' line' + (lineCount !== 1 ? 's' : '') + '</summary>' +
+          '<pre class="ref-item__code-pre"><code' + langCls + '>' + escaped + '</code></pre>' +
+          '</details>';
+      }
       html += '</div>';
     }
     html += '</div>';
@@ -268,6 +313,12 @@ function _renderEvidenceList(body, byRepo, filterRepo, owner) {
   }
 
   body.innerHTML = html;
+  // Highlight code in evidence snippets
+  if (window.hljs) {
+    body.querySelectorAll('.ref-item__code-pre code:not([data-highlighted])').forEach(function(el) {
+      hljs.highlightElement(el);
+    });
+  }
 }
 
 function addMessage(role, content) {

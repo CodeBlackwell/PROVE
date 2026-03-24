@@ -243,7 +243,7 @@ def skill_references(request: Request, skill_name: str):
             "MATCH (f:File)-[:CONTAINS]->(cs:CodeSnippet)-[d:DEMONSTRATES]->(sk:Skill {name: $name}) "
             "MATCH (r:Repository)-[:CONTAINS]->(f) "
             "RETURN r.name AS repo, r.default_branch AS branch, r.private AS private, f.path AS path, "
-            "cs.name AS snippet_name, cs.context AS context, "
+            "cs.name AS snippet_name, cs.context AS context, cs.content AS content, "
             "cs.start_line AS start_line, cs.end_line AS end_line, "
             "cs.language AS lang, d.first_seen AS first_seen, d.last_seen AS last_seen, "
             "d.snippet_lines AS lines "
@@ -265,6 +265,7 @@ def skill_references(request: Request, skill_name: str):
                 "path": r["path"],
                 "snippet_name": r["snippet_name"],
                 "context": r["context"] or "",
+                "content": "" if (r["private"]) else (r["content"] or ""),
                 "start_line": r["start_line"] or 0,
                 "end_line": r["end_line"] or 0,
                 "language": r["lang"] or "",

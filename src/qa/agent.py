@@ -642,15 +642,17 @@ class QAAgent:
         # Emit all evidence metadata for the confidence panel
         evidence_refs = []
         for e in sorted_ev:
+            is_private = e.get("private", False)
             ref = {
                 "repo": e.get("repo", ""),
                 "path": e.get("file_path", ""),
                 "start_line": e.get("start_line", 0),
                 "end_line": e.get("end_line", 0),
                 "context": e.get("context", ""),
+                "content": "" if is_private else e.get("content", ""),
                 "proficiency": e.get("proficiency", ""),
                 "skill": e.get("skill_name", ""),
-                "private": e.get("private", False),
+                "private": is_private,
             }
             lang = ref["path"].rsplit(".", 1)[-1] if "." in ref["path"] else ""
             ref["language"] = lang

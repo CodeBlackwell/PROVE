@@ -439,6 +439,15 @@ function _renderRefList(body, byRepo, filterRepo) {
       html += `<div class="ref-item__name">${ref.snippet_name}</div>`;
       if (ref.context) html += `<div class="ref-item__context">${ref.context}</div>`;
       if (dates) html += `<div class="ref-item__dates">${dates}</div>`;
+      if (ref.content) {
+        const escaped = ref.content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const lineCount = ref.content.split('\n').length;
+        const langCls = ref.language ? ` class="language-${ref.language}"` : '';
+        html += `<details class="ref-item__code-collapse">` +
+          `<summary class="ref-item__code-toggle"><span class="ref-item__code-arrow">\u25B8</span> ${lineCount} line${lineCount !== 1 ? 's' : ''}</summary>` +
+          `<pre class="ref-item__code-pre"><code${langCls}>${escaped}</code></pre>` +
+          `</details>`;
+      }
       html += `</div>`;
     }
 
@@ -451,6 +460,14 @@ function _renderRefList(body, byRepo, filterRepo) {
   }
 
   body.innerHTML = html;
+  _highlightRefCode(body);
+}
+
+function _highlightRefCode(container) {
+  if (!window.hljs) return;
+  container.querySelectorAll('.ref-item__code-pre code:not([data-highlighted])').forEach(el => {
+    hljs.highlightElement(el);
+  });
 }
 
 /* ── Treemap Renderer ──────────────────────────────────────── */

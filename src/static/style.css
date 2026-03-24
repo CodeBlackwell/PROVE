@@ -736,6 +736,53 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   padding: 0.5rem;
 }
 .msg-assistant .mermaid svg { max-width: 100%; height: auto; }
+.msg-assistant .mermaid[data-processed] { cursor: pointer; }
+.msg-assistant .mermaid[data-processed]:hover { background: rgba(212, 205, 196, 0.25); }
+
+/* Mermaid lightbox */
+.mermaid-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+.mermaid-lightbox--open {
+  pointer-events: auto;
+  opacity: 1;
+  visibility: visible;
+}
+.mermaid-lightbox__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 20, 20, 0.65);
+  backdrop-filter: blur(4px);
+}
+.mermaid-lightbox__content {
+  position: relative;
+  width: min(90vw, 1100px);
+  max-height: 90vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 12px 60px rgba(0, 0, 0, 0.25);
+  transform: scale(0.92);
+  transition: transform 0.25s ease;
+}
+.mermaid-lightbox--open .mermaid-lightbox__content {
+  transform: scale(1);
+}
+.mermaid-lightbox__content svg {
+  width: 100% !important;
+  height: auto !important;
+  max-height: 82vh;
+}
 
 #chat-form {
   display: flex;
@@ -1450,6 +1497,52 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   font-size: 0.68rem;
   color: var(--ink-faint);
   margin-top: 0.15rem;
+}
+
+/* Collapsible code in evidence panel */
+.ref-item__code-collapse {
+  margin: 0.3rem 0 0;
+  border-left: 2px solid var(--stone);
+}
+.ref-item__code-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  font-size: 0.68rem;
+  color: var(--ink-faint);
+  user-select: none;
+  list-style: none;
+  font-family: var(--font-body, inherit);
+}
+.ref-item__code-toggle::-webkit-details-marker { display: none; }
+.ref-item__code-toggle::marker { content: ''; }
+.ref-item__code-arrow {
+  font-size: 0.55rem;
+  transition: transform 0.2s;
+}
+.ref-item__code-collapse:not([open]) .ref-item__code-arrow {
+  transform: rotate(-90deg);
+}
+.ref-item__code-collapse[open] .ref-item__code-arrow {
+  content: '\25BE';
+}
+.ref-item__code-pre {
+  margin: 0;
+  padding: 0.5rem 0.6rem;
+  background: rgba(44, 44, 44, 0.04);
+  border-radius: 0 4px 4px 0;
+  border-left: none;
+  overflow-x: auto;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.ref-item__code-pre code {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.7rem;
 }
 
 .ref-repo__lock { font-size: 0.72rem; vertical-align: middle; }
