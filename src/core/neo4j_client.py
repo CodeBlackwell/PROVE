@@ -134,8 +134,10 @@ class Neo4jClient:
             "MATCH (d:Domain)-[:CONTAINS]->(c:Category)-[:CONTAINS]->(s:Skill) "
             "WHERE s.proficiency IS NOT NULL AND s.proficiency <> 'none' "
             "OPTIONAL MATCH (cs:CodeSnippet)-[:DEMONSTRATES]->(s) "
+            "OPTIONAL MATCH (r:Repository)-[:DEMONSTRATES]->(s) "
             "RETURN d.name AS domain, c.name AS category, s.name AS skill, "
-            "s.proficiency AS proficiency, count(cs) AS evidence_count"
+            "s.proficiency AS proficiency, count(DISTINCT cs) AS evidence_count, "
+            "count(DISTINCT r) AS repo_count"
         )
         with self.driver.session() as session:
             result = session.run(query)

@@ -235,9 +235,10 @@ function _renderEvidenceList(body, byRepo, filterRepo, owner) {
     var isPrivate = refs[0] && refs[0].private;
     if (isPrivate) hasPrivate = true;
     var repoUrl = 'https://github.com/' + owner + '/' + repo;
-    var lock = isPrivate ? '<span class="ref-repo__lock" title="Private repository">\u{1F512}</span>' : '';
+    var lock = isPrivate ? ' <span class="ref-repo__lock" title="Private repository">\u{1F512}</span>' : '';
+    var redactedBadge = isPrivate ? ' <span class="ref-item__redacted">PRIVATE — REDACTED</span>' : '';
     html += '<div class="ref-repo">';
-    html += '<h3 class="ref-repo__name"><a href="' + repoUrl + '" target="_blank">' + repo + '</a> ' + lock + '</h3>';
+    html += '<h3 class="ref-repo__name"><a href="' + repoUrl + '" target="_blank">' + repo + '</a>' + lock + redactedBadge + '</h3>';
 
     for (var ref of refs) {
       var branch = 'main';

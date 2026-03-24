@@ -1,4 +1,5 @@
 import json
+import math
 import re
 import time
 from dataclasses import dataclass, field
@@ -338,13 +339,15 @@ class QAAgent:
         by_domain: dict[str, list[dict]] = {}
         for s in skills:
             by_domain.setdefault(s["domain"], []).append(s)
-        lines = ["SKILL INVENTORY (strongest first):"]
+        lines = ["SKILL INVENTORY (strongest first — ranked by breadth × depth):"]
         for domain, entries in sorted(by_domain.items()):
+            # Rank by log(evidence) * repo_count so one huge repo doesn't dominate
             top = sorted(entries, key=lambda e: (
-                PROFICIENCY_WEIGHT.get(e["proficiency"], 0), e["evidence_count"]
+                PROFICIENCY_WEIGHT.get(e["proficiency"], 0),
+                math.log1p(e["evidence_count"]) * max(e.get("repo_count", 1), 1),
             ), reverse=True)[:5]
             skills_str = ", ".join(
-                f"{e['skill']} ({e['proficiency']}, {e['evidence_count']} examples)"
+                f"{e['skill']} ({e['proficiency']}, {e['evidence_count']} examples across {e.get('repo_count', 1)} repos)"
                 for e in top
             )
             lines.append(f"  {domain}: {skills_str}")
