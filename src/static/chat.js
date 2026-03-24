@@ -125,10 +125,13 @@ function wrapCodeBlocks(container) {
     const lines = (code || pre).textContent.split('\n').length;
     const details = document.createElement('details');
     details.className = 'code-collapse';
-    details.open = true;
+    details.open = false;
     const summary = document.createElement('summary');
     summary.className = 'code-collapse__toggle';
-    summary.innerHTML = '<span class="code-collapse__arrow">▾</span> ' + lines + ' line' + (lines !== 1 ? 's' : '');
+    summary.innerHTML = '<span class="code-collapse__arrow">▸</span> ' + lines + ' line' + (lines !== 1 ? 's' : '');
+    details.addEventListener('toggle', function() {
+      summary.querySelector('.code-collapse__arrow').textContent = details.open ? '▾' : '▸';
+    });
     pre.parentNode.insertBefore(details, pre);
     details.appendChild(summary);
     details.appendChild(pre);

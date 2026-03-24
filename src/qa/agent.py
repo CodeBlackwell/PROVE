@@ -55,6 +55,9 @@ SYSTEM_PROMPT_TEMPLATE = (
     "for additional depth on specific components.\n"
     "- For work history, use search_resume.\n"
     "- For gap analysis, use find_gaps.\n"
+    "- For weakness or comparison questions, use find_gaps with common industry skills, "
+    "THEN use get_evidence for the STRONGEST demonstrated skills to provide contrast. "
+    "Frame weaknesses as areas of specialization trade-offs, not deficiencies.\n"
     "- Prefer skills with 'extensive' proficiency and high evidence counts.\n"
     "- Always make at least 2 tool calls before answering.\n\n"
     "ANSWER FORMAT:\n"
@@ -73,22 +76,21 @@ def _strip_think(text: str) -> str:
     return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
 
-def _trim_answer(text: str, max_sentences: int = 4) -> str:
-    """Trim verbose LLM answers to the first paragraph or max_sentences.
+def _trim_answer(text: str, max_sentences: int = 6) -> str:
+    """Trim verbose LLM answers to max_sentences.
 
-    Architecture responses (containing mermaid diagrams or multiple headers)
-    are returned untrimmed since they are intentionally detailed.
+    Architecture responses (mermaid diagrams) and structured responses
+    (headers, bullet lists) are returned untrimmed.
     """
     if not text:
         return text
     # Never trim architecture responses with mermaid diagrams
     if "```mermaid" in text:
         return text
-    # If it contains markdown headers or bullet lists, take only the first paragraph
-    if "\n#" in text or "\n-" in text or "\n*" in text:
-        first_para = text.split("\n\n")[0].strip()
-        if len(first_para) > 50:
-            return first_para
+    # Never trim structured responses — the model used headers/lists intentionally
+    # (e.g. weakness analysis, comparison answers)
+    if "\n#" in text or "\n- " in text:
+        return text
     # Otherwise cap by sentence count
     sentences = re.split(r'(?<=[.!?])\s+', text)
     if len(sentences) > max_sentences:
@@ -111,7 +113,7 @@ def _compute_confidence(evidence: list[dict]) -> str:
         return "Partial"
     return "None"
 
-MAX_EVIDENCE_SHOWN = 3
+MAX_EVIDENCE_SHOWN = 5
 
 PROFICIENCY_WEIGHT = {"extensive": 3, "moderate": 2, "minimal": 1, "none": 0}
 
@@ -235,6 +237,7 @@ TOOL_DEFINITIONS = [
 ]
 
 MAX_TOOL_CALLS = 4
+MIN_TOOL_CALLS = 2
 MAX_TOOL_RESULT_CHARS = 8000
 
 
@@ -292,7 +295,7 @@ CURATE_PROMPT = (
     "You are selecting the most IMPRESSIVE code evidence for a software portfolio.\n"
     "You will receive a question and numbered code snippets with metadata.\n\n"
     "RULES:\n"
-    "1. KEEP at least 3 snippets. Prefer diversity across different repos — "
+    "1. KEEP at least 5 snippets when available. Prefer diversity across different repos — "
     "showing range is more impressive than depth in one project.\n"
     "2. DROP only truly trivial code (simple getters, one-line configs, bare imports). "
     "When in doubt, KEEP.\n"
@@ -524,12 +527,18 @@ class QAAgent:
             {"role": "user", "content": question},
         ]
         all_evidence = []
+        tool_call_count = 0
 
         for step in range(MAX_TOOL_CALLS):
             logger.info("agent.react_step", step=step + 1, max_steps=MAX_TOOL_CALLS)
             response = self.chat.chat(messages, tools=TOOL_DEFINITIONS, purpose="react_loop")
             choice = response.choices[0]
             if not choice.message.tool_calls:
+                if tool_call_count < MIN_TOOL_CALLS:
+                    logger.info("agent.nudge", tool_calls_so_far=tool_call_count, min_required=MIN_TOOL_CALLS)
+                    messages.append({"role": "assistant", "content": choice.message.content or ""})
+                    messages.append({"role": "user", "content": "Use at least one more tool to gather supporting evidence before answering."})
+                    continue
                 logger.info("agent.react_done", step=step + 1, reason="final_answer")
                 repos = {e.get("repo") for e in all_evidence if e.get("repo")}
                 skills = {e.get("skill_name") for e in all_evidence if e.get("skill_name")}
@@ -540,6 +549,7 @@ class QAAgent:
                 return format_response(_trim_answer(_strip_think(choice.message.content or "")), curated, curation=curation_meta, total_count=len(all_evidence), show_private_code=self.show_private_code, github_owner=self.github_owner)
             messages.append(self._assistant_msg(choice))
             for tc in choice.message.tool_calls:
+                tool_call_count += 1
                 result = self._execute_tool(tc.function.name, json.loads(tc.function.arguments))
                 messages.append({"role": "tool", "tool_call_id": tc.id, "content": result[:MAX_TOOL_RESULT_CHARS]})
                 self._collect_evidence(result, all_evidence)
@@ -573,16 +583,23 @@ class QAAgent:
         messages.append({"role": "user", "content": question})
         all_evidence = []
         entities: dict[str, EntityRef] = {}
+        tool_call_count = 0
 
         for step in range(MAX_TOOL_CALLS):
             logger.info("agent.react_step", step=step + 1, max_steps=MAX_TOOL_CALLS)
             response = self.chat.chat(messages, tools=TOOL_DEFINITIONS, purpose="react_loop")
             choice = response.choices[0]
             if not choice.message.tool_calls:
+                if tool_call_count < MIN_TOOL_CALLS:
+                    logger.info("agent.nudge", tool_calls_so_far=tool_call_count, min_required=MIN_TOOL_CALLS)
+                    messages.append({"role": "assistant", "content": choice.message.content or ""})
+                    messages.append({"role": "user", "content": "Use at least one more tool to gather supporting evidence before answering."})
+                    continue
                 logger.info("agent.react_done", step=step + 1, reason="final_answer")
                 break
             messages.append(self._assistant_msg(choice))
             for tc in choice.message.tool_calls:
+                tool_call_count += 1
                 args = json.loads(tc.function.arguments)
                 yield {"_status": True, "phase": "tool", "tool": tc.function.name, "args": args, "step": step + 1}
                 result = self._execute_tool(tc.function.name, args)
