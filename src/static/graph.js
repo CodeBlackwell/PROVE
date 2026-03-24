@@ -88,6 +88,7 @@ function buildHierarchyTree(state) {
             color: tgt.color,
             proficiency: tm.proficiency || null,
             evidence_links: tm.evidence_links || [],
+            repo_breakdown: tm.repo_breakdown || [],
           });
           break;
         }
@@ -120,6 +121,7 @@ function buildHierarchyTree(state) {
               color: tgt.color,
               proficiency: (tgt.meta || {}).proficiency || null,
               evidence_links: ((tgt.meta || {}).evidence_links || []),
+              repo_breakdown: ((tgt.meta || {}).repo_breakdown || []),
             });
             break;
           }
@@ -192,6 +194,7 @@ function getSkillList(state) {
       status: (n.meta || {}).status || 'demonstrated',
       proficiency: (n.meta || {}).proficiency || null,
       evidence_links: (n.meta || {}).evidence_links || [],
+      repo_breakdown: (n.meta || {}).repo_breakdown || [],
       domain: skillDomain.get(n.id) || '',
     }))
     .sort((a, b) => b.evidence_count - a.evidence_count);
@@ -232,6 +235,55 @@ function skillFill(d, domainName) {
   return domainColor(domainName);
 }
 
+/* ── Repo luminance variants ─────────────────────────────── */
+
+// Stable repo ordering across all tiles so the same repo always gets the same shade
+const REPO_ORDER = [];
+
+function _ensureRepoOrder(repos) {
+  for (const r of repos) {
+    if (REPO_ORDER.indexOf(r.repo) === -1) REPO_ORDER.push(r.repo);
+  }
+}
+
+function _hexToHSL(hex) {
+  let r = parseInt(hex.slice(1, 3), 16) / 255;
+  let g = parseInt(hex.slice(3, 5), 16) / 255;
+  let b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0, l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
+  }
+  return [h * 360, s * 100, l * 100];
+}
+
+function _hslToHex(h, s, l) {
+  s /= 100; l /= 100;
+  const k = n => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  const toHex = x => Math.round(x * 255).toString(16).padStart(2, '0');
+  return '#' + toHex(f(0)) + toHex(f(8)) + toHex(f(4));
+}
+
+function repoShade(baseHex, repoName) {
+  const idx = REPO_ORDER.indexOf(repoName);
+  const [h, s, l] = _hexToHSL(baseHex);
+  // Spread repos across luminance: darkest first, then lighter
+  // Range: base lightness ± 18%, capped to [20, 70]
+  const steps = Math.max(REPO_ORDER.length, 1);
+  const offset = (idx / steps) * 36 - 18;  // -18 to +18
+  const newL = Math.max(20, Math.min(70, l + offset));
+  // Slight saturation shift to add depth
+  const newS = Math.max(15, Math.min(85, s - offset * 0.3));
+  return _hslToHex(h, newS, newL);
+}
+
 /* ── Tooltip ────────────────────────────────────────────────── */
 
 let tooltip;
@@ -244,12 +296,9 @@ function ensureTooltip() {
   return tooltip;
 }
 
-function showTooltip(evt, html) {
+function _positionTooltip(evt) {
   const tt = ensureTooltip();
-  tt.innerHTML = html;
-  tt.classList.add('viz-tooltip--visible');
   const panel = document.getElementById('graph-panel').getBoundingClientRect();
-  // Position within panel bounds
   let left = evt.clientX - panel.left + 14;
   let top = evt.clientY - panel.top - 10;
   // Clamp so tooltip doesn't overflow right/bottom
@@ -258,6 +307,17 @@ function showTooltip(evt, html) {
   if (left < 4) left = 4;
   tt.style.left = left + 'px';
   tt.style.top = top + 'px';
+}
+
+function showTooltip(evt, html) {
+  const tt = ensureTooltip();
+  tt.innerHTML = html;
+  tt.classList.add('viz-tooltip--visible');
+  _positionTooltip(evt);
+}
+
+function moveTooltip(evt) {
+  _positionTooltip(evt);
 }
 
 function hideTooltip() {
@@ -270,18 +330,32 @@ function _ghLink(repo, path, line, branch) {
   return `https://github.com/${owner}/${repo}/blob/${b}/${path}#L${line}`;
 }
 
-function tipHtml(d) {
+function tipHtml(d, domBase) {
   const s = d.status || '';
   const p = d.proficiency || '';
   const ev = d.evidence_count ?? 0;
   const nm = d.name || '';
   const links = d.evidence_links || [];
+  const bd = d.repo_breakdown || [];
 
   let h = `<strong>${nm}</strong>`;
   if (p) h += `<span class="tip-prof tip-prof--${p}">${p}</span>`;
   if (ev > 0) h += `<div class="tip-count">${ev} code snippets</div>`;
   if (s === 'claimed_only') h += `<div class="tip-status">Resume claim — no code evidence</div>`;
   if (s === 'gap') h += `<div class="tip-status tip-status--gap">Gap — not demonstrated</div>`;
+
+  // Repo breakdown with color swatches
+  if (bd.length > 1 && domBase) {
+    h += '<div class="tip-repos">';
+    for (const r of bd) {
+      h += `<div class="tip-repo-row">` +
+        `<span class="tip-repo-swatch" style="background:${repoShade(domBase, r.repo)}"></span>` +
+        `<span class="tip-repo-name">${r.repo}</span>` +
+        `<span class="tip-repo-count">${r.count}</span>` +
+        `</div>`;
+    }
+    h += '</div>';
+  }
 
   if (links.length > 0) {
     let hasPrivate = false;
@@ -549,47 +623,97 @@ const TreemapRenderer = {
         return d.data.name.length > maxChars ? d.data.name.slice(0, maxChars - 1) + '…' : d.data.name;
       });
 
-    // Skill tiles
+    // Register all repo names for stable shade ordering
     const leaves = root.leaves();
-    gNode.selectAll('rect.treemap-leaf')
+    for (const leaf of leaves) {
+      if (leaf.data.repo_breakdown) _ensureRepoOrder(leaf.data.repo_breakdown);
+    }
+
+    // Skill tiles — groups with repo stripes
+    const leafGroups = gNode.selectAll('g.treemap-leaf-group')
       .data(leaves, d => d.data.name)
       .join(
-        enter => enter.append('rect')
-          .attr('class', 'treemap-leaf')
-          .attr('x', d => d.x0)
-          .attr('y', d => d.y0)
-          .attr('width', d => Math.max(0, d.x1 - d.x0))
-          .attr('height', d => Math.max(0, d.y1 - d.y0))
-          .attr('rx', 3)
-          .style('fill', d => {
-            if (d.data.status === 'gap') return '#e8d0cc';
-            if (d.data.status === 'claimed_only') return '#d4cec6';
+        enter => {
+          const g = enter.append('g').attr('class', 'treemap-leaf-group');
+
+          // For each leaf, render either repo stripes or a solid rect
+          g.each(function(d) {
+            const el = d3.select(this);
+            const w = Math.max(0, d.x1 - d.x0);
+            const h = Math.max(0, d.y1 - d.y0);
             const dom = d.parent && d.parent.parent ? d.parent.parent.data.name : '';
-            return domainColor(dom);
-          })
-          .style('stroke', d => d.data.status === 'gap' ? '#c4756a' : d.data.status === 'claimed_only' ? '#b0a898' : 'none')
-          .style('stroke-width', d => d.data.status !== 'demonstrated' ? 1.5 : 0)
-          .style('stroke-dasharray', d => d.data.status === 'gap' ? '3 2' : 'none')
-          .style('opacity', 0)
-          .on('mouseover', (evt, d) => {
-            showTooltip(evt, tipHtml(d.data));
-            d3.select(evt.target).style('opacity', 1);
-          })
-          .on('mouseout', (evt, d) => {
-            hideTooltip();
-            d3.select(evt.target).style('opacity', 0.88);
-          })
-          .on('click', (evt, d) => {
-            evt.stopPropagation();
-            hideTooltip();
-            if (d.data.status === 'demonstrated') openRefModal(d.data.name);
-          })
-          .transition().duration(500).ease(d3.easeCubicOut)
-          .style('opacity', 0.88)
+            const baseColor = domainColor(dom);
+            const bd = d.data.repo_breakdown || [];
+
+            if (d.data.status !== 'demonstrated' || bd.length <= 1) {
+              // Solid rect for gap/claimed/single-repo
+              el.append('rect')
+                .attr('class', 'treemap-leaf')
+                .attr('x', d.x0).attr('y', d.y0)
+                .attr('width', w).attr('height', h)
+                .attr('rx', 3)
+                .style('fill', skillFill(d.data, dom))
+                .style('stroke', d.data.status === 'gap' ? '#c4756a' : d.data.status === 'claimed_only' ? '#b0a898' : 'none')
+                .style('stroke-width', d.data.status !== 'demonstrated' ? 1.5 : 0)
+                .style('stroke-dasharray', d.data.status === 'gap' ? '3 2' : 'none');
+            } else {
+              // Clip path for rounded corners
+              const clipId = 'clip-' + d.data.name.replace(/[^a-zA-Z0-9]/g, '_') + '-' + Math.random().toString(36).slice(2, 6);
+              el.append('clipPath').attr('id', clipId)
+                .append('rect')
+                .attr('x', d.x0).attr('y', d.y0)
+                .attr('width', w).attr('height', h)
+                .attr('rx', 3);
+
+              const stripeG = el.append('g').attr('clip-path', 'url(#' + clipId + ')');
+              const total = bd.reduce((s, r) => s + r.count, 0);
+              let yOff = d.y0;
+              for (const repo of bd) {
+                const stripeH = (repo.count / total) * h;
+                stripeG.append('rect')
+                  .attr('class', 'treemap-stripe')
+                  .attr('x', d.x0).attr('y', yOff)
+                  .attr('width', w).attr('height', Math.max(0, stripeH))
+                  .style('fill', repoShade(baseColor, repo.repo));
+                yOff += stripeH;
+              }
+            }
+          });
+
+          // Invisible hit rect on top for events
+          g.append('rect')
+            .attr('class', 'treemap-leaf-hit')
+            .attr('x', d => d.x0).attr('y', d => d.y0)
+            .attr('width', d => Math.max(0, d.x1 - d.x0))
+            .attr('height', d => Math.max(0, d.y1 - d.y0))
+            .style('fill', 'transparent')
+            .style('cursor', 'pointer');
+
+          g.style('opacity', 0)
+            .on('mouseover', (evt, d) => {
+              const dom = d.parent && d.parent.parent ? d.parent.parent.data.name : '';
+              showTooltip(evt, tipHtml(d.data, domainColor(dom)));
+              d3.select(evt.currentTarget).style('opacity', 1);
+            })
+            .on('mousemove', (evt) => { moveTooltip(evt); })
+            .on('mouseout', (evt) => {
+              hideTooltip();
+              d3.select(evt.currentTarget).style('opacity', 0.88);
+            })
+            .on('click', (evt, d) => {
+              evt.stopPropagation();
+              hideTooltip();
+              if (d.data.status === 'demonstrated') openRefModal(d.data.name);
+            })
+            .transition().duration(500).ease(d3.easeCubicOut)
+            .style('opacity', 0.88);
+
+          return g;
+        }
       );
 
     // Touch support for treemap tiles (SVG click unreliable on mobile)
-    gNode.selectAll('rect.treemap-leaf').each(function(d) {
+    leafGroups.each(function(d) {
       this.addEventListener('touchend', (evt) => {
         evt.preventDefault();
         hideTooltip();
@@ -677,9 +801,10 @@ const BarRenderer = {
         .style('fill', 'transparent')
         .style('touch-action', 'none')
         .on('mouseover', (evt) => {
-          showTooltip(evt, tipHtml(skill));
+          showTooltip(evt, tipHtml(skill, skill.domain ? domainColor(skill.domain) : null));
           row.select('.bar-fill').style('opacity', 1);
         })
+        .on('mousemove', (evt) => { moveTooltip(evt); })
         .on('mouseout', () => {
           hideTooltip();
           row.select('.bar-fill').style('opacity', 0.85);

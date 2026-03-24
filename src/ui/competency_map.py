@@ -97,6 +97,30 @@ def _top_evidence_links(session, skill_name: str, limit: int = 5) -> list[dict]:
         return []
 
 
+def _repo_breakdown(session, skill_names: list[str]) -> dict[str, list[dict]]:
+    """Get per-repo snippet counts for each skill. Returns {skill: [{repo, count}, ...]}."""
+    if not skill_names:
+        return {}
+    try:
+        result = session.run(
+            "MATCH (r:Repository)-[:CONTAINS]->(f:File)-[:CONTAINS]->(cs:CodeSnippet)"
+            "-[:DEMONSTRATES]->(s:Skill) "
+            "WHERE s.name IN $names "
+            "RETURN s.name AS skill, r.name AS repo, count(cs) AS cnt "
+            "ORDER BY s.name, cnt DESC",
+            names=skill_names,
+        )
+        rows = result.data() if hasattr(result, 'data') else list(result)
+        breakdown: dict[str, list[dict]] = {}
+        for row in rows:
+            breakdown.setdefault(row["skill"], []).append(
+                {"repo": row["repo"], "count": row["cnt"]}
+            )
+        return breakdown
+    except Exception:
+        return {}
+
+
 def get_subgraph(neo4j_client, skill_names: list[str]) -> dict:
     if not skill_names:
         return {"nodes": [], "edges": []}
@@ -110,9 +134,13 @@ def get_subgraph(neo4j_client, skill_names: list[str]) -> dict:
             "s.repo_count AS repo_count, collect(DISTINCT r.name) AS repos",
             names=skill_names,
         )
+        all_rows = rows.data() if hasattr(rows, 'data') else list(rows)
+        all_skill_names = [r["skill"] for r in all_rows]
+        repo_counts = _repo_breakdown(session, all_skill_names)
+
         nodes, edges = [], []
         node_ids, edge_ids = set(), set()
-        for r in rows:
+        for r in all_rows:
             did, cid, sid = f"dom:{r['domain']}", f"cat:{r['category']}", f"skill:{r['skill']}"
             size = PROFICIENCY_SIZE.get(r["proficiency"], 10)
             evidence_links = _top_evidence_links(session, r["skill"])
@@ -125,6 +153,7 @@ def get_subgraph(neo4j_client, skill_names: list[str]) -> dict:
                     "evidence_count": r["snippet_count"] or 0,
                     "repo_count": r["repo_count"] or 0,
                     "evidence_links": evidence_links,
+                    "repo_breakdown": repo_counts.get(r["skill"], []),
                 }),
             ]:
                 if nid not in node_ids:

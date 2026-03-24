@@ -1100,7 +1100,7 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   color: var(--ink);
   pointer-events: auto;
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity 0.15s, left 0.08s ease-out, top 0.08s ease-out;
   z-index: 10;
   font-family: inherit;
   max-width: 280px;
@@ -1127,6 +1127,18 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
 .tip-count { margin-top: 0.25rem; color: var(--ink-light); }
 .tip-status { margin-top: 0.25rem; font-style: italic; color: var(--ink-faint); }
 .tip-status--gap { color: #b05a4f; }
+
+/* Repo breakdown in tooltip */
+.tip-repos { margin-top: 0.35rem; border-top: 1px solid rgba(0,0,0,0.06); padding-top: 0.3rem; }
+.tip-repo-row {
+  display: flex; align-items: center; gap: 0.35rem;
+  font-size: 0.7rem; padding: 0.1rem 0;
+}
+.tip-repo-swatch {
+  width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0;
+}
+.tip-repo-name { color: var(--ink-light); flex: 1; }
+.tip-repo-count { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 
 .tip-links {
   margin-top: 0.4rem;
