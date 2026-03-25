@@ -618,48 +618,69 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
 /* ── Repo tile rails (inside #graph-panel) ───── */
 .repo-rail {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   z-index: 6;
   transition: opacity 0.8s ease, transform 0.8s ease;
 }
-.repo-rail--left { left: 0.5rem; }
-.repo-rail--right { right: 0.5rem; }
+.repo-rail--left  { left: 0.5rem; top: 50%; transform: translateY(-50%); }
+.repo-rail--right { right: 0.5rem; top: 50%; transform: translateY(-50%); }
+.repo-rail--bottom {
+  flex-direction: row;
+  bottom: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  gap: 1.25rem;
+}
 
 .repo-rail--hidden,
 .hero-faded .repo-rail {
   opacity: 0;
   pointer-events: none;
+}
+.repo-rail--left.repo-rail--hidden,
+.hero-faded .repo-rail--left {
   transform: translateY(-50%) scale(0.95);
+}
+.repo-rail--right.repo-rail--hidden,
+.hero-faded .repo-rail--right {
+  transform: translateY(-50%) scale(0.95);
+}
+.repo-rail--bottom.repo-rail--hidden,
+.hero-faded .repo-rail--bottom {
+  transform: translateX(-50%) scale(0.95);
 }
 
 .repo-tile {
-  width: 120px;
-  padding: 0.4rem 0.5rem;
-  background: rgba(234, 213, 182, 0.45);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(212, 205, 196, 0.5);
-  border-radius: 10px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 80px;
 }
+
+.repo-tile__ring { display: block; width: 64px; height: 64px; }
 
 .repo-tile__name {
   font-family: 'Cormorant Garamond', Georgia, serif;
-  font-size: 0.72rem;
+  font-size: 0.62rem;
   font-weight: 600;
   color: var(--ink-light);
-  margin-bottom: 0.3rem;
+  margin-top: 0.2rem;
+  text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 80px;
 }
 
-.repo-tile__map { display: block; }
-
+/* Repo rails: scale down on mid-size screens, hide on tablets/phones */
+@media (max-width: 1440px) {
+  .repo-rail { gap: 0.4rem; }
+  .repo-tile { width: 60px; }
+  .repo-tile__ring { width: 48px; height: 48px; }
+  .repo-tile__name { font-size: 0.55rem; max-width: 60px; }
+}
 @media (max-width: 1024px) { .repo-rail { display: none; } }
 
 /* Chat panel */
