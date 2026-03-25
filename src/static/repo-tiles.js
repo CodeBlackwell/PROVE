@@ -7,9 +7,9 @@
   const DETAIL = document.getElementById('repo-detail');
   if (!LEFT || !RIGHT || !BOTTOM || !DETAIL) return;
 
-  const SIZE = 58;
+  const SIZE = 72;
   const OUTER = SIZE / 2 - 2;
-  const INNER = OUTER - 9;
+  const INNER = OUTER - 11;
   const EXP_SIZE = 200;
   const EXP_OUTER = EXP_SIZE / 2 - 4;
   const EXP_INNER = EXP_OUTER - 22;
