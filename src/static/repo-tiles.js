@@ -1,15 +1,13 @@
 /* ── Repo Tiles — interactive donut rings ─────────────── */
 
 (function () {
-  const LEFT = document.getElementById('repo-rail-left');
-  const RIGHT = document.getElementById('repo-rail-right');
-  const BOTTOM = document.getElementById('repo-rail-bottom');
+  const RAIL = document.getElementById('repo-rail-bottom');
   const DETAIL = document.getElementById('repo-detail');
-  if (!LEFT || !RIGHT || !BOTTOM || !DETAIL) return;
+  if (!RAIL || !DETAIL) return;
 
-  const SIZE = 48;
+  const SIZE = 42;
   const OUTER = SIZE / 2 - 2;
-  const INNER = OUTER - 8;
+  const INNER = OUTER - 7;
   const EXP_SIZE = 200;
   const EXP_OUTER = EXP_SIZE / 2 - 4;
   const EXP_INNER = EXP_OUTER - 22;
@@ -101,7 +99,7 @@
 
   function expandRepo(repo) {
     expanded = repo.name;
-    [LEFT, RIGHT, BOTTOM].forEach(r => r.classList.add('repo-rail--peek'));
+    RAIL.classList.add('repo-rail--peek');
 
     DETAIL.innerHTML = '';
     DETAIL.classList.add('repo-detail--visible');
@@ -241,7 +239,7 @@
     if (!expanded) return;
     expanded = null;
     DETAIL.classList.remove('repo-detail--visible');
-    [LEFT, RIGHT, BOTTOM].forEach(r => r.classList.remove('repo-rail--peek'));
+    RAIL.classList.remove('repo-rail--peek');
     document.querySelectorAll('.repo-tile--dimmed').forEach(t =>
       t.classList.remove('repo-tile--dimmed')
     );
@@ -262,20 +260,14 @@
   fetch('/api/repositories')
     .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
     .then(repos => {
-      repos.forEach((repo, i) => {
-        const tile = renderTile(repo);
-        if (i < 3) LEFT.appendChild(tile);
-        else if (i < 6) RIGHT.appendChild(tile);
-        else BOTTOM.appendChild(tile);
-      });
+      repos.forEach(repo => RAIL.appendChild(renderTile(repo)));
     })
     .catch(() => {});
 
-  const rails = [LEFT, RIGHT, BOTTOM];
   new MutationObserver(() => {
     if (document.body.classList.contains('hero-faded')) {
       closeDetail();
-      rails.forEach(r => r.classList.add('repo-rail--hidden'));
+      RAIL.classList.add('repo-rail--hidden');
     }
   }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 })();
