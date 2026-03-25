@@ -173,58 +173,38 @@ class TestViewportLayout:
 # Touch targets
 # ---------------------------------------------------------------------------
 
+@pytest.mark.parametrize("shared_page", PHONE_DEVICES, ids=device_id, indirect=True)
 class TestTouchTargets:
     """Apple HIG and WCAG require minimum 44x44px touch targets."""
 
     MIN_TOUCH_SIZE = 44
 
-    @pytest.mark.parametrize("device", PHONE_DEVICES, ids=device_id)
-    def test_canvas_toggle_touch_target(self, device):
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            btn = page.locator("#canvas-toggle")
-            box = btn.bounding_box()
-            assert box is not None, "Canvas toggle should be visible"
-            assert box["width"] >= self.MIN_TOUCH_SIZE, \
-                f"Canvas toggle width {box['width']}px < {self.MIN_TOUCH_SIZE}px"
-            assert box["height"] >= self.MIN_TOUCH_SIZE, \
-                f"Canvas toggle height {box['height']}px < {self.MIN_TOUCH_SIZE}px"
-        finally:
-            page.close()
-            ctx.close()
+    def test_canvas_toggle_touch_target(self, shared_page):
+        box = shared_page.locator("#canvas-toggle").bounding_box()
+        assert box is not None, "Canvas toggle should be visible"
+        assert box["width"] >= self.MIN_TOUCH_SIZE, \
+            f"Canvas toggle width {box['width']}px < {self.MIN_TOUCH_SIZE}px"
+        assert box["height"] >= self.MIN_TOUCH_SIZE, \
+            f"Canvas toggle height {box['height']}px < {self.MIN_TOUCH_SIZE}px"
 
-    @pytest.mark.parametrize("device", PHONE_DEVICES, ids=device_id)
-    def test_jd_button_touch_target(self, device):
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            btn = page.locator("#jd-btn")
-            box = btn.bounding_box()
-            assert box is not None, "JD button should be visible"
-            assert box["width"] >= self.MIN_TOUCH_SIZE, \
-                f"JD button width {box['width']}px < {self.MIN_TOUCH_SIZE}px"
-            assert box["height"] >= self.MIN_TOUCH_SIZE, \
-                f"JD button height {box['height']}px < {self.MIN_TOUCH_SIZE}px"
-        finally:
-            page.close()
-            ctx.close()
+    def test_jd_button_touch_target(self, shared_page):
+        box = shared_page.locator("#jd-btn").bounding_box()
+        assert box is not None, "JD button should be visible"
+        assert box["width"] >= self.MIN_TOUCH_SIZE, \
+            f"JD button width {box['width']}px < {self.MIN_TOUCH_SIZE}px"
+        assert box["height"] >= self.MIN_TOUCH_SIZE, \
+            f"JD button height {box['height']}px < {self.MIN_TOUCH_SIZE}px"
 
-    @pytest.mark.parametrize("device", PHONE_DEVICES, ids=device_id)
-    def test_starter_buttons_touch_target(self, device):
+    def test_starter_buttons_touch_target(self, shared_page):
         """Starter question buttons should be large enough to tap."""
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            buttons = page.locator(".starter-btn")
-            count = buttons.count()
-            assert count > 0, "Starter buttons should be present"
-            for i in range(count):
-                box = buttons.nth(i).bounding_box()
-                assert box is not None, f"Starter button {i} should be visible"
-                # Height should be at least 44px for comfortable tapping
-                assert box["height"] >= 36, \
-                    f"Starter button {i} height {box['height']}px is too small for touch"
-        finally:
-            page.close()
-            ctx.close()
+        buttons = shared_page.locator(".starter-btn")
+        count = buttons.count()
+        assert count > 0, "Starter buttons should be present"
+        for i in range(count):
+            box = buttons.nth(i).bounding_box()
+            assert box is not None, f"Starter button {i} should be visible"
+            assert box["height"] >= 36, \
+                f"Starter button {i} height {box['height']}px is too small for touch"
 
 
 # ---------------------------------------------------------------------------
@@ -371,29 +351,23 @@ class TestCSSRendering:
 # Viewport height (dvh) handling
 # ---------------------------------------------------------------------------
 
+@pytest.mark.parametrize("shared_page", PHONE_DEVICES, ids=device_id, indirect=True)
 class TestViewportHeight:
     """Test that dynamic viewport height works correctly."""
 
-    @pytest.mark.parametrize("device", PHONE_DEVICES, ids=device_id)
-    def test_main_fills_viewport_height(self, device):
+    def test_main_fills_viewport_height(self, shared_page):
         """Main element should fill the viewport height."""
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            result = page.evaluate("""() => {
-                const main = document.querySelector('main');
-                const rect = main.getBoundingClientRect();
-                return {
-                    mainHeight: rect.height,
-                    viewportHeight: window.innerHeight,
-                };
-            }""")
-            # Main should be close to viewport height (within 10% tolerance)
-            ratio = result["mainHeight"] / result["viewportHeight"]
-            assert ratio >= 0.85, \
-                f"Main height ({result['mainHeight']}px) is only {ratio:.0%} of viewport ({result['viewportHeight']}px)"
-        finally:
-            page.close()
-            ctx.close()
+        result = shared_page.evaluate("""() => {
+            const main = document.querySelector('main');
+            const rect = main.getBoundingClientRect();
+            return {
+                mainHeight: rect.height,
+                viewportHeight: window.innerHeight,
+            };
+        }""")
+        ratio = result["mainHeight"] / result["viewportHeight"]
+        assert ratio >= 0.85, \
+            f"Main height ({result['mainHeight']}px) is only {ratio:.0%} of viewport ({result['viewportHeight']}px)"
 
 
 # ---------------------------------------------------------------------------

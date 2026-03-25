@@ -20,177 +20,102 @@ BROWSER_MATRIX = [IPHONE_15, PIXEL_7, FIREFOX_MOBILE]
 # CSS rendering consistency
 # ---------------------------------------------------------------------------
 
+@pytest.mark.parametrize("shared_page", BROWSER_MATRIX, ids=device_id, indirect=True)
 class TestCSSConsistency:
     """Verify CSS renders consistently across browser engines."""
 
-    @pytest.mark.parametrize("device", BROWSER_MATRIX, ids=device_id)
-    def test_border_radius_renders(self, device):
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            radius = page.evaluate("""
-                window.getComputedStyle(document.querySelector('.hero')).borderRadius
-            """)
-            assert radius and radius != "0px", \
-                f"Border radius not applied on {device['name']}: {radius}"
-        finally:
-            page.close()
-            ctx.close()
+    def test_border_radius_renders(self, shared_page):
+        radius = shared_page.evaluate("""
+            window.getComputedStyle(document.querySelector('.hero')).borderRadius
+        """)
+        assert radius and radius != "0px", f"Border radius not applied: {radius}"
 
-    @pytest.mark.parametrize("device", BROWSER_MATRIX, ids=device_id)
-    def test_flex_layout_applied(self, device):
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            display = page.evaluate("""
-                window.getComputedStyle(document.querySelector('main')).display
-            """)
-            assert display == "flex", f"Main should be flex, got {display} on {device['name']}"
-        finally:
-            page.close()
-            ctx.close()
+    def test_flex_layout_applied(self, shared_page):
+        display = shared_page.evaluate("""
+            window.getComputedStyle(document.querySelector('main')).display
+        """)
+        assert display == "flex", f"Main should be flex, got {display}"
 
-    @pytest.mark.parametrize("device", BROWSER_MATRIX, ids=device_id)
-    def test_google_fonts_loaded(self, device):
+    def test_google_fonts_loaded(self, shared_page):
         """Cormorant Garamond should be loaded and applied."""
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            font = page.evaluate("""
-                window.getComputedStyle(document.querySelector('.hero__name')).fontFamily
-            """)
-            assert "Cormorant" in font or "serif" in font, \
-                f"Expected serif font, got {font} on {device['name']}"
-        finally:
-            page.close()
-            ctx.close()
+        font = shared_page.evaluate("""
+            window.getComputedStyle(document.querySelector('.hero__name')).fontFamily
+        """)
+        assert "Cormorant" in font or "serif" in font, f"Expected serif font, got {font}"
 
-    @pytest.mark.parametrize("device", BROWSER_MATRIX, ids=device_id)
-    def test_css_variables_applied(self, device):
+    def test_css_variables_applied(self, shared_page):
         """Custom properties (--bg, --ink, etc.) should resolve correctly."""
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            result = page.evaluate("""() => {
-                const style = window.getComputedStyle(document.documentElement);
-                return {
-                    bg: style.getPropertyValue('--bg').trim(),
-                    ink: style.getPropertyValue('--ink').trim(),
-                    accent: style.getPropertyValue('--accent').trim(),
-                };
-            }""")
-            assert result["bg"] == "#f5f0eb", f"--bg wrong: {result['bg']}"
-            assert result["ink"] == "#1a1410", f"--ink wrong: {result['ink']}"
-            assert result["accent"] == "#6b4c2a", f"--accent wrong: {result['accent']}"
-        finally:
-            page.close()
-            ctx.close()
+        result = shared_page.evaluate("""() => {
+            const style = window.getComputedStyle(document.documentElement);
+            return {
+                bg: style.getPropertyValue('--bg').trim(),
+                ink: style.getPropertyValue('--ink').trim(),
+                accent: style.getPropertyValue('--accent').trim(),
+            };
+        }""")
+        assert result["bg"] == "#f5f0eb", f"--bg wrong: {result['bg']}"
+        assert result["ink"] == "#1a1410", f"--ink wrong: {result['ink']}"
+        assert result["accent"] == "#6b4c2a", f"--accent wrong: {result['accent']}"
 
 
 # ---------------------------------------------------------------------------
 # JavaScript API compatibility
 # ---------------------------------------------------------------------------
 
+@pytest.mark.parametrize("shared_page", BROWSER_MATRIX, ids=device_id, indirect=True)
 class TestJSCompatibility:
     """Test JavaScript APIs that may differ across browsers."""
 
-    @pytest.mark.parametrize("device", BROWSER_MATRIX, ids=device_id)
-    def test_request_submit_supported(self, device):
+    def test_request_submit_supported(self, shared_page):
         """form.requestSubmit() must be supported (used by chat.js)."""
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            supported = page.evaluate("""
-                typeof document.getElementById('chat-form').requestSubmit === 'function'
-            """)
-            assert supported, \
-                f"requestSubmit() not supported on {device['name']} ({device['browser']})"
-        finally:
-            page.close()
-            ctx.close()
+        supported = shared_page.evaluate("""
+            typeof document.getElementById('chat-form').requestSubmit === 'function'
+        """)
+        assert supported, "requestSubmit() not supported"
 
-    @pytest.mark.parametrize("device", BROWSER_MATRIX, ids=device_id)
-    def test_crypto_subtle_available(self, device):
+    def test_crypto_subtle_available(self, shared_page):
         """crypto.subtle is required for fingerprinting (needs secure context)."""
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            available = page.evaluate("""
-                typeof crypto !== 'undefined' && typeof crypto.subtle !== 'undefined'
-            """)
-            # On localhost HTTP, crypto.subtle may not be available
-            if BASE_URL.startswith("https"):
-                assert available, \
-                    f"crypto.subtle not available on {device['name']}"
-        finally:
-            page.close()
-            ctx.close()
+        available = shared_page.evaluate("""
+            typeof crypto !== 'undefined' && typeof crypto.subtle !== 'undefined'
+        """)
+        if BASE_URL.startswith("https"):
+            assert available, "crypto.subtle not available"
 
-    @pytest.mark.parametrize("device", BROWSER_MATRIX, ids=device_id)
-    def test_fetch_api_available(self, device):
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            available = page.evaluate("typeof fetch === 'function'")
-            assert available, f"fetch() not available on {device['name']}"
-        finally:
-            page.close()
-            ctx.close()
+    def test_fetch_api_available(self, shared_page):
+        available = shared_page.evaluate("typeof fetch === 'function'")
+        assert available, "fetch() not available"
 
-    @pytest.mark.parametrize("device", BROWSER_MATRIX, ids=device_id)
-    def test_readable_stream_available(self, device):
+    def test_readable_stream_available(self, shared_page):
         """ReadableStream is needed for SSE parsing via fetch."""
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            available = page.evaluate("typeof ReadableStream === 'function'")
-            assert available, \
-                f"ReadableStream not available on {device['name']} — SSE won't work"
-        finally:
-            page.close()
-            ctx.close()
+        available = shared_page.evaluate("typeof ReadableStream === 'function'")
+        assert available, "ReadableStream not available — SSE won't work"
 
-    @pytest.mark.parametrize("device", BROWSER_MATRIX, ids=device_id)
-    def test_text_decoder_available(self, device):
+    def test_text_decoder_available(self, shared_page):
         """TextDecoder used for SSE streaming."""
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            available = page.evaluate("typeof TextDecoder === 'function'")
-            assert available, f"TextDecoder not available on {device['name']}"
-        finally:
-            page.close()
-            ctx.close()
+        available = shared_page.evaluate("typeof TextDecoder === 'function'")
+        assert available, "TextDecoder not available"
 
-    @pytest.mark.parametrize("device", BROWSER_MATRIX, ids=device_id)
-    def test_text_encoder_available(self, device):
+    def test_text_encoder_available(self, shared_page):
         """TextEncoder used for fingerprinting hash."""
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            available = page.evaluate("typeof TextEncoder === 'function'")
-            assert available, f"TextEncoder not available on {device['name']}"
-        finally:
-            page.close()
-            ctx.close()
+        available = shared_page.evaluate("typeof TextEncoder === 'function'")
+        assert available, "TextEncoder not available"
 
 
 # ---------------------------------------------------------------------------
 # D3.js & Mermaid compatibility
 # ---------------------------------------------------------------------------
 
+@pytest.mark.parametrize("shared_page", BROWSER_MATRIX, ids=device_id, indirect=True)
 class TestLibraryCompat:
     """External libraries must load across browsers."""
 
-    @pytest.mark.parametrize("device", BROWSER_MATRIX, ids=device_id)
-    def test_d3_loaded(self, device):
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            available = page.evaluate("typeof d3 !== 'undefined'")
-            assert available, f"D3.js not loaded on {device['name']}"
-        finally:
-            page.close()
-            ctx.close()
+    def test_d3_loaded(self, shared_page):
+        available = shared_page.evaluate("typeof d3 !== 'undefined'")
+        assert available, "D3.js not loaded"
 
-    @pytest.mark.parametrize("device", BROWSER_MATRIX, ids=device_id)
-    def test_mermaid_loaded(self, device):
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            available = page.evaluate("typeof mermaid !== 'undefined'")
-            assert available, f"Mermaid not loaded on {device['name']}"
-        finally:
-            page.close()
-            ctx.close()
+    def test_mermaid_loaded(self, shared_page):
+        available = shared_page.evaluate("typeof mermaid !== 'undefined'")
+        assert available, "Mermaid not loaded"
 
 
 # ---------------------------------------------------------------------------

@@ -6,6 +6,7 @@ Start the dev server first: just dev
 """
 
 import os
+import urllib.request
 import pytest
 from playwright.sync_api import sync_playwright, Browser, BrowserContext, Page
 
@@ -14,6 +15,20 @@ from playwright.sync_api import sync_playwright, Browser, BrowserContext, Page
 # ---------------------------------------------------------------------------
 
 BASE_URL = os.getenv("BASE_URL", "http://localhost:7860")
+
+# ---------------------------------------------------------------------------
+# HTML cache — fetch once per URL, serve from memory via route interception
+# ---------------------------------------------------------------------------
+
+_html_cache: dict[str, str] = {}
+
+
+def _cached_html(url: str) -> str:
+    if url not in _html_cache:
+        with urllib.request.urlopen(url) as r:
+            _html_cache[url] = r.read().decode()
+    return _html_cache[url]
+
 
 # ---------------------------------------------------------------------------
 # Device configurations
@@ -241,9 +256,16 @@ def make_page(device: dict, url: str, wait_for_load: bool = True) -> tuple[Brows
 
     By default, forces the loading screen to complete immediately via JS
     instead of waiting for the 19MB background.svg to load.
+    Uses route interception to serve cached HTML for the main page.
     """
     ctx = make_context(device)
     page = ctx.new_page()
+    # Route interception: serve main page HTML from memory
+    if url == BASE_URL:
+        html = _cached_html(url)
+        _fulfill = lambda route: route.fulfill(body=html, content_type="text/html")
+        page.route(url, _fulfill)
+        page.route(url + "/", _fulfill)
     page.goto(url, wait_until="domcontentloaded")
     if wait_for_load:
         # Force-complete the loading sequence instead of waiting for bg image
@@ -256,6 +278,17 @@ def make_page(device: dict, url: str, wait_for_load: bool = True) -> tuple[Brows
         # Give a tick for CSS transitions/reflows to settle
         page.wait_for_timeout(100)
     return ctx, page
+
+
+def reset_page(page):
+    """Reset DOM state without full navigation — for shared pages between tests."""
+    page.evaluate("""() => {
+        document.getElementById('messages').innerHTML = '';
+        document.getElementById('chat-input').value = '';
+        document.getElementById('chat-input').disabled = false;
+        document.body.classList.remove('hero-faded', 'canvas-mode');
+        document.body.classList.add('is-reveal', 'is-loaded');
+    }""")
 
 
 # ---------------------------------------------------------------------------
@@ -317,6 +350,20 @@ def desktop_page(base_url):
 @pytest.fixture()
 def firefox_mobile_page(base_url):
     ctx, page = make_page(FIREFOX_MOBILE, base_url)
+    yield page
+    page.close()
+    ctx.close()
+
+
+# ---------------------------------------------------------------------------
+# Parametrized class-scoped fixture — one page per device per test class
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="class")
+def shared_page(request):
+    """Class-scoped page — created once per device, shared across all tests in the class."""
+    device = request.param
+    ctx, page = make_page(device, BASE_URL)
     yield page
     page.close()
     ctx.close()

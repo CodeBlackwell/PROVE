@@ -16,50 +16,38 @@ from tests.e2e.conftest import (
 # Dynamic viewport units (dvh vs vh)
 # ---------------------------------------------------------------------------
 
+@pytest.mark.parametrize("shared_page", IOS_DEVICES, ids=device_id, indirect=True)
 class TestDynamicViewport:
     """iOS Safari has a collapsible address bar that changes viewport height.
     100vh includes the hidden bar area, 100dvh adjusts dynamically."""
 
-    @pytest.mark.parametrize("device", IOS_DEVICES, ids=device_id)
-    def test_body_uses_dvh_or_vh(self, device):
+    def test_body_uses_dvh_or_vh(self, shared_page):
         """Body height should be set (100dvh with vh fallback)."""
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            result = page.evaluate("""() => {
-                const body = document.body;
-                const style = window.getComputedStyle(body);
-                return {
-                    height: style.height,
-                    overflow: style.overflow,
-                    innerHeight: window.innerHeight,
-                    bodyHeight: body.getBoundingClientRect().height,
-                };
-            }""")
-            # Body should fill viewport
-            ratio = result["bodyHeight"] / result["innerHeight"]
-            assert ratio >= 0.95, \
-                f"Body height ({result['bodyHeight']}) doesn't fill viewport ({result['innerHeight']})"
-        finally:
-            page.close()
-            ctx.close()
+        result = shared_page.evaluate("""() => {
+            const body = document.body;
+            const style = window.getComputedStyle(body);
+            return {
+                height: style.height,
+                overflow: style.overflow,
+                innerHeight: window.innerHeight,
+                bodyHeight: body.getBoundingClientRect().height,
+            };
+        }""")
+        ratio = result["bodyHeight"] / result["innerHeight"]
+        assert ratio >= 0.95, \
+            f"Body height ({result['bodyHeight']}) doesn't fill viewport ({result['innerHeight']})"
 
-    @pytest.mark.parametrize("device", IOS_DEVICES, ids=device_id)
-    def test_main_respects_viewport_height(self, device):
+    def test_main_respects_viewport_height(self, shared_page):
         """Main element should not exceed viewport height."""
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            result = page.evaluate("""() => {
-                const main = document.querySelector('main');
-                return {
-                    mainH: main.getBoundingClientRect().height,
-                    viewportH: window.innerHeight,
-                };
-            }""")
-            assert result["mainH"] <= result["viewportH"] + 5, \
-                f"Main ({result['mainH']}px) exceeds viewport ({result['viewportH']}px)"
-        finally:
-            page.close()
-            ctx.close()
+        result = shared_page.evaluate("""() => {
+            const main = document.querySelector('main');
+            return {
+                mainH: main.getBoundingClientRect().height,
+                viewportH: window.innerHeight,
+            };
+        }""")
+        assert result["mainH"] <= result["viewportH"] + 5, \
+            f"Main ({result['mainH']}px) exceeds viewport ({result['viewportH']}px)"
 
 
 # ---------------------------------------------------------------------------
@@ -139,121 +127,85 @@ class TestFixedPositioning:
 # background-attachment: fixed (known iOS bug)
 # ---------------------------------------------------------------------------
 
+@pytest.mark.parametrize("shared_page", IOS_DEVICES, ids=device_id, indirect=True)
 class TestBackgroundFixed:
     """background-attachment:fixed is notoriously broken on iOS Safari.
     It renders as background-attachment:scroll, causing blank backgrounds
     or mispositioned images."""
 
-    @pytest.mark.parametrize("device", IOS_DEVICES, ids=device_id)
-    def test_background_image_visible(self, device):
+    def test_background_image_visible(self, shared_page):
         """Even if attachment:fixed is broken, the background should still show."""
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            result = page.evaluate("""() => {
-                const style = window.getComputedStyle(document.body);
-                return {
-                    bgImage: style.backgroundImage,
-                    bgAttach: style.backgroundAttachment,
-                    bgSize: style.backgroundSize,
-                };
-            }""")
-            # Background image should be set
-            assert result["bgImage"] != "none", \
-                f"No background image on {device['name']}: {result}"
-            # Flag the known iOS issue
-            if result["bgAttach"] == "fixed":
-                # This will render incorrectly on real iOS — flag it
-                pytest.xfail(
-                    "background-attachment:fixed is known broken on iOS Safari. "
-                    "Consider using background-attachment:scroll on mobile."
-                )
-        finally:
-            page.close()
-            ctx.close()
+        result = shared_page.evaluate("""() => {
+            const style = window.getComputedStyle(document.body);
+            return {
+                bgImage: style.backgroundImage,
+                bgAttach: style.backgroundAttachment,
+                bgSize: style.backgroundSize,
+            };
+        }""")
+        assert result["bgImage"] != "none", f"No background image: {result}"
+        if result["bgAttach"] == "fixed":
+            pytest.xfail(
+                "background-attachment:fixed is known broken on iOS Safari. "
+                "Consider using background-attachment:scroll on mobile."
+            )
 
-    @pytest.mark.parametrize("device", IOS_DEVICES, ids=device_id)
-    def test_body_not_blank_white(self, device):
+    def test_body_not_blank_white(self, shared_page):
         """The page should not appear as a blank white screen."""
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            # Check that the body background color is not white/default
-            bg_color = page.evaluate("""
-                window.getComputedStyle(document.body).backgroundColor
-            """)
-            # Our CSS sets --bg: #f5f0eb
-            assert bg_color != "rgb(255, 255, 255)" and bg_color != "rgba(0, 0, 0, 0)", \
-                f"Body appears blank (bg={bg_color}) on {device['name']}"
-        finally:
-            page.close()
-            ctx.close()
+        bg_color = shared_page.evaluate("""
+            window.getComputedStyle(document.body).backgroundColor
+        """)
+        assert bg_color != "rgb(255, 255, 255)" and bg_color != "rgba(0, 0, 0, 0)", \
+            f"Body appears blank (bg={bg_color})"
 
 
 # ---------------------------------------------------------------------------
 # -webkit-backdrop-filter
 # ---------------------------------------------------------------------------
 
+@pytest.mark.parametrize("shared_page", IOS_DEVICES, ids=device_id, indirect=True)
 class TestWebkitBackdropFilter:
     """Safari requires -webkit-backdrop-filter prefix."""
 
-    @pytest.mark.parametrize("device", IOS_DEVICES, ids=device_id)
-    def test_hero_has_webkit_backdrop_filter(self, device):
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            result = page.evaluate("""() => {
-                const style = window.getComputedStyle(document.querySelector('.hero'));
-                return {
-                    bf: style.backdropFilter || '',
-                    wbf: style.webkitBackdropFilter || '',
-                };
-            }""")
-            has_filter = (result["bf"] and result["bf"] != "none") or \
-                         (result["wbf"] and result["wbf"] != "none")
-            assert has_filter, \
-                f"No backdrop-filter on hero ({device['name']}): bf={result['bf']}, wbf={result['wbf']}"
-        finally:
-            page.close()
-            ctx.close()
+    def test_hero_has_webkit_backdrop_filter(self, shared_page):
+        result = shared_page.evaluate("""() => {
+            const style = window.getComputedStyle(document.querySelector('.hero'));
+            return {
+                bf: style.backdropFilter || '',
+                wbf: style.webkitBackdropFilter || '',
+            };
+        }""")
+        has_filter = (result["bf"] and result["bf"] != "none") or \
+                     (result["wbf"] and result["wbf"] != "none")
+        assert has_filter, f"No backdrop-filter on hero: bf={result['bf']}, wbf={result['wbf']}"
 
-    @pytest.mark.parametrize("device", IOS_DEVICES, ids=device_id)
-    def test_chat_panel_has_webkit_backdrop_filter(self, device):
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            result = page.evaluate("""() => {
-                const style = window.getComputedStyle(document.getElementById('chat-panel'));
-                return {
-                    bf: style.backdropFilter || '',
-                    wbf: style.webkitBackdropFilter || '',
-                };
-            }""")
-            has_filter = (result["bf"] and result["bf"] != "none") or \
-                         (result["wbf"] and result["wbf"] != "none")
-            assert has_filter, \
-                f"No backdrop-filter on chat panel ({device['name']})"
-        finally:
-            page.close()
-            ctx.close()
+    def test_chat_panel_has_webkit_backdrop_filter(self, shared_page):
+        result = shared_page.evaluate("""() => {
+            const style = window.getComputedStyle(document.getElementById('chat-panel'));
+            return {
+                bf: style.backdropFilter || '',
+                wbf: style.webkitBackdropFilter || '',
+            };
+        }""")
+        has_filter = (result["bf"] and result["bf"] != "none") or \
+                     (result["wbf"] and result["wbf"] != "none")
+        assert has_filter, "No backdrop-filter on chat panel"
 
 
 # ---------------------------------------------------------------------------
 # requestSubmit() support on WebKit
 # ---------------------------------------------------------------------------
 
+@pytest.mark.parametrize("shared_page", IOS_DEVICES, ids=device_id, indirect=True)
 class TestRequestSubmit:
     """form.requestSubmit() was added to Safari 16+. iOS 17 (iPhone 15) supports it,
     but older devices may not."""
 
-    @pytest.mark.parametrize("device", IOS_DEVICES, ids=device_id)
-    def test_request_submit_works(self, device):
-        ctx, page = make_page(device, BASE_URL)
-        try:
-            supported = page.evaluate("""
-                typeof HTMLFormElement.prototype.requestSubmit === 'function'
-            """)
-            assert supported, \
-                f"requestSubmit() not available on {device['name']} — chat submission will break"
-        finally:
-            page.close()
-            ctx.close()
+    def test_request_submit_works(self, shared_page):
+        supported = shared_page.evaluate("""
+            typeof HTMLFormElement.prototype.requestSubmit === 'function'
+        """)
+        assert supported, "requestSubmit() not available — chat submission will break"
 
 
 # ---------------------------------------------------------------------------
