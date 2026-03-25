@@ -2,10 +2,15 @@
 
 (function () {
   const CAROUSEL = document.getElementById('exhibits-carousel');
+  const DOTS = document.getElementById('carousel-dots');
   const DETAIL = document.getElementById('repo-detail');
   const STRIP = document.getElementById('hero-exhibits');
   const hasDesktop = CAROUSEL && DETAIL;
   if (!STRIP && !hasDesktop) return;
+
+  const FEATURED = ['PROVE', 'SPICE', 'PANEL', 'C.R.A.C.K.', 'veridatum'];
+  const DISPLAY_OVERRIDES = { veridatum: 'Veridatum' };
+  const PAGE_SIZE = 5;
   const snippetCache = new Map();
 
   const SIZE = 84;
@@ -441,6 +446,57 @@
     if (sheetEl) sheetEl.classList.remove('repo-sheet--open');
   }
 
+  /* ── Carousel pagination ────────────────────────── */
+
+  let currentPage = 0;
+  let totalPages = 1;
+  let allTilesArr = [];
+
+  function showPage(page) {
+    currentPage = Math.max(0, Math.min(totalPages - 1, page));
+    const start = currentPage * PAGE_SIZE;
+    allTilesArr.forEach((t, i) => {
+      t.style.display = (i >= start && i < start + PAGE_SIZE) ? '' : 'none';
+    });
+    updateNav();
+  }
+
+  function updateNav() {
+    if (!DOTS) return;
+    DOTS.querySelectorAll('.carousel-dot').forEach((d, i) => {
+      d.classList.toggle('carousel-dot--active', i === currentPage);
+    });
+    const prev = CAROUSEL.parentNode.querySelector('.carousel-arrow--prev');
+    const next = CAROUSEL.parentNode.querySelector('.carousel-arrow--next');
+    if (prev) prev.disabled = currentPage === 0;
+    if (next) next.disabled = currentPage >= totalPages - 1;
+  }
+
+  function buildNav() {
+    const wrap = CAROUSEL.parentNode;
+
+    const prev = document.createElement('button');
+    prev.className = 'carousel-arrow carousel-arrow--prev';
+    prev.textContent = '\u2039';
+    prev.addEventListener('click', () => showPage(currentPage - 1));
+    wrap.insertBefore(prev, CAROUSEL);
+
+    const next = document.createElement('button');
+    next.className = 'carousel-arrow carousel-arrow--next';
+    next.textContent = '\u203A';
+    next.addEventListener('click', () => showPage(currentPage + 1));
+    wrap.appendChild(next);
+
+    if (DOTS) {
+      for (let i = 0; i < totalPages; i++) {
+        const dot = document.createElement('button');
+        dot.className = 'carousel-dot';
+        dot.addEventListener('click', () => showPage(i));
+        DOTS.appendChild(dot);
+      }
+    }
+  }
+
   /* ── Init: fetch and distribute tiles ──────────── */
 
   fetch('/api/repositories')
@@ -449,11 +505,28 @@
       if (STRIP) initMobileStrip(repos);
       if (!hasDesktop) return;
 
+      // Sort: featured first (in declared order), then the rest
+      const featSet = new Set(FEATURED);
+      const featured = [];
+      const rest = [];
       for (const repo of repos) {
-        CAROUSEL.appendChild(renderTile(repo));
+        if (featSet.has(repo.name)) featured.push(repo);
+        else rest.push(repo);
+      }
+      featured.sort((a, b) => FEATURED.indexOf(a.name) - FEATURED.indexOf(b.name));
+      const sorted = featured.concat(rest);
+
+      for (const repo of sorted) {
+        if (DISPLAY_OVERRIDES[repo.name]) repo.display_name = DISPLAY_OVERRIDES[repo.name];
+        const tile = renderTile(repo);
+        CAROUSEL.appendChild(tile);
+        allTilesArr.push(tile);
       }
 
-      // Build domain legend now that all domainColor() calls have fired
+      totalPages = Math.ceil(allTilesArr.length / PAGE_SIZE);
+      if (totalPages > 1) buildNav();
+      showPage(0);
+
       if (window.buildExhibitsLegend) window.buildExhibitsLegend();
     })
     .catch(() => {});
