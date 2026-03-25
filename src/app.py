@@ -210,23 +210,23 @@ def list_repositories(request: Request):
 
 REPO_BREAKDOWNS = {
     "SPICE": {
-        "tagline": "Autonomous Crypto Trading Engine",
+        "tagline": "Self-Piloting Intelligent Capital Engine",
         "summary": "Full-stack autonomous trading system that runs 24/7 on AWS. "
                    "Modular service architecture with real-time market data ingestion, "
                    "strategy execution, risk management, and a React dashboard for monitoring live positions.",
         "stack": ["Python", "FastAPI", "React", "PostgreSQL/TimescaleDB", "Redis", "Docker", "AWS"],
     },
     "PROVE": {
-        "tagline": "Code-Backed Skill Evidence Graph",
+        "tagline": "Portfolio Reasoning Over Verified Evidence",
         "summary": "This portfolio app. An AI agent reasons over a Neo4j knowledge graph of real code snippets "
                    "to answer questions about skills and experience, backed by vector search and streaming SSE responses.",
         "stack": ["Python", "FastAPI", "Neo4j", "D3.js", "Anthropic", "Voyage AI"],
     },
     "C.R.A.C.K.": {
-        "tagline": "Cybersecurity Research & Applied Challenge Kit",
-        "summary": "Structured offensive security research spanning HackTheBox machines, CTF challenges, "
-                   "and custom exploit development. Includes defensive analysis tooling and write-ups with reproducible attack chains.",
-        "stack": ["Python", "Bash", "Nmap", "Burp Suite", "Metasploit", "Docker"],
+        "tagline": "Comprehensive Recon & Attack Creation Kit",
+        "summary": "Modular pentesting toolkit featuring 700+ commands, 50+ attack chains, and Neo4j-powered "
+                   "attack path visualization. Because methodology beats memorization.",
+        "stack": ["Python", "Bash", "Nmap", "Burp Suite", "Metasploit", "Neo4j", "Docker"],
     },
     "Flow-Ohana": {
         "tagline": "Collaborative Workflow Platform",
@@ -235,16 +235,16 @@ REPO_BREAKDOWNS = {
         "stack": ["Python", "FastAPI", "React", "PostgreSQL", "WebSockets", "Docker"],
     },
     "PANEL": {
-        "tagline": "Multi-Agent PRD Generator",
-        "summary": "AI-powered product requirements tool that orchestrates multiple LLM agents via AutoGen "
-                   "to generate structured PRDs from natural language descriptions. Vue 3 frontend with live agent status.",
+        "tagline": "Multi-Agent PRD Stress-Testing System",
+        "summary": "13 specialized AI agents debate architecture, security, and UX before you write a line of code. "
+                   "3 judges score the result, then packages a complete PRD with transcripts and structured exports.",
         "stack": ["Python", "FastAPI", "AutoGen", "Vue 3", "GPT-4o"],
     },
     "Agent_Blackwell": {
-        "tagline": "Personal AI Agent Framework",
-        "summary": "Multi-agent orchestration system with specialized agents for code review, research, "
-                   "and task automation. Custom workflow engine with MCP tool integration and structured logging.",
-        "stack": ["Python", "LangChain", "MCP", "Linear API"],
+        "tagline": "Modular AI Agent Orchestration System",
+        "summary": "A symphony of expert AI agents communicating via the Agent Communication Protocol (ACP). "
+                   "Specialized agents seamlessly integrate their capabilities to deconstruct and resolve intricate challenges.",
+        "stack": ["Python", "Redis", "Pinecone", "MCP", "Linear API"],
     },
     "schemancer": {
         "tagline": "Declarative Schema Engine",
@@ -253,16 +253,16 @@ REPO_BREAKDOWNS = {
         "stack": ["Python", "FastAPI", "D3.js", "CodeMirror"],
     },
     "veridatum": {
-        "tagline": "Data Validation & Transformation Pipeline",
-        "summary": "Pipeline toolkit for ingesting, validating, and transforming structured data with "
-                   "configurable rules. Web interface for monitoring pipeline runs and inspecting validation results.",
-        "stack": ["Python", "FastAPI", "D3.js", "SQLite"],
+        "tagline": "Cross-Source DataFrame Comparison Library",
+        "summary": "Data validation framework and cross-source comparison engine. "
+                   "Compares DataFrames across sources with configurable rules, web monitoring, and detailed diff reports.",
+        "stack": ["Python", "FastAPI", "D3.js", "Pandas"],
     },
     "d3_visualization_gallery": {
-        "tagline": "Interactive Data Visualization Showcase",
-        "summary": "Collection of D3.js visualizations exploring different chart types, layouts, and interaction patterns. "
-                   "Served via a lightweight Node server with hot reloading.",
-        "stack": ["JavaScript", "D3.js", "Node.js", "Vite"],
+        "tagline": "D3 Visualization Gallery",
+        "summary": "Collection of D3.js visualizations built with TypeScript and modern React. "
+                   "Explores different chart types, layouts, and interaction patterns with hot reloading.",
+        "stack": ["TypeScript", "React", "D3.js", "Vite"],
     },
     "POI_Alchemist": {
         "tagline": "Point-of-Interest Data Enrichment",
@@ -271,7 +271,7 @@ REPO_BREAKDOWNS = {
         "stack": ["Python", "Pandas", "scikit-learn", "GeoPandas"],
     },
     "A.U.R.A-Avantlink_Universal_Reporting_Assistant": {
-        "tagline": "AI Reporting Assistant",
+        "tagline": "Avantlink Universal Reporting Assistant",
         "summary": "Fine-tuned code generation model for automated affiliate marketing report creation. "
                    "Custom training pipeline with data preprocessing, model training, and inference serving.",
         "stack": ["Python", "Transformers", "PyTorch"],
