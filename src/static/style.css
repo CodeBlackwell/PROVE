@@ -668,6 +668,10 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
 }
 
 /* ── Exhibits legend (domain key) ──────────────── */
+.exhibits-legend-slot {
+  flex-shrink: 0;
+  padding: 0.25rem 1rem 0.75rem;
+}
 .exhibits-legend {
   display: flex;
   align-items: baseline;

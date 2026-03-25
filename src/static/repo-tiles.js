@@ -7,7 +7,7 @@
   const DETAIL = document.getElementById('repo-detail');
   if (!LEFT || !RIGHT || !SHOWCASE || !DETAIL) return;
 
-  const SHOWCASE_NAMES = ['PROVE', 'C.R.A.C.K.', 'PANEL', 'SPICE'];
+  const SHOWCASE_NAMES = ['PROVE', 'C.R.A.C.K.', 'PANEL', 'SPICE', 'veridatum'];
 
   const SIZE = 72;
   const OUTER = SIZE / 2 - 2;
@@ -63,7 +63,7 @@
 
     const name = document.createElement('div');
     name.className = 'repo-tile__name';
-    name.textContent = repo.name;
+    name.textContent = repo.display_name || repo.name;
     tile.appendChild(name);
 
     tile.addEventListener('mouseenter', () => {
@@ -134,7 +134,7 @@
 
     const title = document.createElement('h3');
     title.className = 'repo-detail__title';
-    title.textContent = repo.name;
+    title.textContent = repo.display_name || repo.name;
     DETAIL.appendChild(title);
 
     const body = document.createElement('div');

@@ -202,11 +202,22 @@ def list_repositories(request: Request):
         ).data()
 
     return [
-        {"name": r["name"], "private": bool(r["private"]) if r["private"] else False,
+        {"name": r["name"], "display_name": DISPLAY_NAMES.get(r["name"], r["name"]),
+         "private": bool(r["private"]) if r["private"] else False,
          "domains": [d for d in r["domains"] if d["domain"]]}
         for r in rows
     ]
 
+
+DISPLAY_NAMES = {
+    "A.U.R.A-Avantlink_Universal_Reporting_Assistant": "A.U.R.A.",
+    "Agent_Blackwell": "Agent Blackwell",
+    "d3_visualization_gallery": "D3 Visualization Gallery",
+    "Flow-Ohana": "Flow Ohana",
+    "POI_Alchemist": "P.o.I Alchemist",
+    "schemancer": "Schemancer",
+    "veridatum": "Veridatum",
+}
 
 REPO_BREAKDOWNS = {
     "SPICE": {

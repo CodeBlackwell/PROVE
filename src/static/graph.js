@@ -782,7 +782,7 @@ function updateLegend(mode) {
 
 // Called by repo-tiles.js after domains are registered
 window.buildExhibitsLegend = function () {
-  const el = document.getElementById('viz-legend');
+  const el = document.getElementById('exhibits-legend-slot');
   if (!el || activeMode !== 'exhibits') return;
   const entries = Object.entries(DOMAIN_HUES);
   if (!entries.length) return;
