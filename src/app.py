@@ -208,6 +208,114 @@ def list_repositories(request: Request):
     ]
 
 
+REPO_BREAKDOWNS = {
+    "SPICE": {
+        "tagline": "Autonomous Crypto Trading Engine",
+        "summary": "Full-stack autonomous trading system that runs 24/7 on AWS. "
+                   "Modular service architecture with real-time market data ingestion, "
+                   "strategy execution, risk management, and a React dashboard for monitoring live positions.",
+        "stack": ["Python", "FastAPI", "React", "PostgreSQL/TimescaleDB", "Redis", "Docker", "AWS"],
+    },
+    "PROVE": {
+        "tagline": "Code-Backed Skill Evidence Graph",
+        "summary": "This portfolio app. An AI agent reasons over a Neo4j knowledge graph of real code snippets "
+                   "to answer questions about skills and experience, backed by vector search and streaming SSE responses.",
+        "stack": ["Python", "FastAPI", "Neo4j", "D3.js", "Anthropic", "Voyage AI"],
+    },
+    "C.R.A.C.K.": {
+        "tagline": "Cybersecurity Research & Applied Challenge Kit",
+        "summary": "Structured offensive security research spanning HackTheBox machines, CTF challenges, "
+                   "and custom exploit development. Includes defensive analysis tooling and write-ups with reproducible attack chains.",
+        "stack": ["Python", "Bash", "Nmap", "Burp Suite", "Metasploit", "Docker"],
+    },
+    "Flow-Ohana": {
+        "tagline": "Collaborative Workflow Platform",
+        "summary": "Full-stack team collaboration app with real-time updates, role-based access control, "
+                   "and a rich frontend. End-to-end tested with comprehensive integration coverage.",
+        "stack": ["Python", "FastAPI", "React", "PostgreSQL", "WebSockets", "Docker"],
+    },
+    "PANEL": {
+        "tagline": "Multi-Agent PRD Generator",
+        "summary": "AI-powered product requirements tool that orchestrates multiple LLM agents via AutoGen "
+                   "to generate structured PRDs from natural language descriptions. Vue 3 frontend with live agent status.",
+        "stack": ["Python", "FastAPI", "AutoGen", "Vue 3", "GPT-4o"],
+    },
+    "Agent_Blackwell": {
+        "tagline": "Personal AI Agent Framework",
+        "summary": "Multi-agent orchestration system with specialized agents for code review, research, "
+                   "and task automation. Custom workflow engine with MCP tool integration and structured logging.",
+        "stack": ["Python", "LangChain", "MCP", "Linear API"],
+    },
+    "schemancer": {
+        "tagline": "Declarative Schema Engine",
+        "summary": "Schema definition and validation library with a live playground demo. "
+                   "Define data shapes declaratively and generate validators, migrations, and documentation from a single source.",
+        "stack": ["Python", "FastAPI", "D3.js", "CodeMirror"],
+    },
+    "veridatum": {
+        "tagline": "Data Validation & Transformation Pipeline",
+        "summary": "Pipeline toolkit for ingesting, validating, and transforming structured data with "
+                   "configurable rules. Web interface for monitoring pipeline runs and inspecting validation results.",
+        "stack": ["Python", "FastAPI", "D3.js", "SQLite"],
+    },
+    "d3_visualization_gallery": {
+        "tagline": "Interactive Data Visualization Showcase",
+        "summary": "Collection of D3.js visualizations exploring different chart types, layouts, and interaction patterns. "
+                   "Served via a lightweight Node server with hot reloading.",
+        "stack": ["JavaScript", "D3.js", "Node.js", "Vite"],
+    },
+    "POI_Alchemist": {
+        "tagline": "Point-of-Interest Data Enrichment",
+        "summary": "Geospatial data pipeline that enriches raw location data with contextual metadata, "
+                   "scoring, and categorization using ML classifiers and external APIs.",
+        "stack": ["Python", "Pandas", "scikit-learn", "GeoPandas"],
+    },
+    "A.U.R.A-Avantlink_Universal_Reporting_Assistant": {
+        "tagline": "AI Reporting Assistant",
+        "summary": "Fine-tuned code generation model for automated affiliate marketing report creation. "
+                   "Custom training pipeline with data preprocessing, model training, and inference serving.",
+        "stack": ["Python", "Transformers", "PyTorch"],
+    },
+}
+
+
+@app.get("/api/repositories/{repo_name}")
+def get_repository_detail(repo_name: str, request: Request):
+    vid = _visitor_id(request)
+    blocked = _check_limit(vid, "read", request)
+    if blocked:
+        return blocked
+
+    neo4j = clients["neo4j_client"]
+    owner = os.getenv("GITHUB_OWNER", "codeblackwell")
+    with neo4j.driver.session() as s:
+        rows = s.run(
+            "MATCH (r:Repository {name: $name})-[:CONTAINS]->(f:File)-[:CONTAINS]->(cs:CodeSnippet)-[:DEMONSTRATES]->(sk:Skill) "
+            "OPTIONAL MATCH (d:Domain)-[:CONTAINS]->(cat:Category)-[:CONTAINS]->(sk) "
+            "RETURN d.name AS domain, sk.name AS skill, count(cs) AS snippets, "
+            "       collect(DISTINCT {file: f.path, start: cs.start_line, branch: r.default_branch})[0..3] AS files "
+            "ORDER BY domain, snippets DESC",
+            name=repo_name,
+        ).data()
+
+    if not rows:
+        return JSONResponse({"error": "not found"}, status_code=404)
+
+    domains = {}
+    for r in rows:
+        d = r["domain"] or "Other"
+        if d not in domains:
+            domains[d] = []
+        files = [
+            f"https://github.com/{owner}/{repo_name}/blob/{f['branch'] or 'main'}/{f['file']}#L{f['start']}"
+            for f in (r["files"] or []) if f.get("file")
+        ]
+        domains[d].append({"skill": r["skill"], "snippets": r["snippets"], "files": files})
+
+    breakdown = REPO_BREAKDOWNS.get(repo_name, {})
+    return {"name": repo_name, "domains": domains, "breakdown": breakdown}
+
+
 # ---------------------------------------------------------------------------
 # History & log browsing endpoints
 # ---------------------------------------------------------------------------

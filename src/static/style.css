@@ -657,9 +657,31 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   flex-direction: column;
   align-items: center;
   width: 80px;
+  cursor: pointer;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+              opacity 0.3s ease, filter 0.3s ease;
 }
 
-.repo-tile__ring { display: block; width: 64px; height: 64px; }
+.repo-tile--hover {
+  transform: scale(1.6);
+  z-index: 10;
+}
+
+.repo-tile--dimmed {
+  opacity: 0.3;
+  filter: blur(1.5px);
+}
+
+.repo-tile__ring {
+  display: block;
+  width: 64px;
+  height: 64px;
+  transition: filter 0.3s ease;
+}
+
+.repo-tile__ring path {
+  transition: d 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
 
 .repo-tile__name {
   font-family: 'Cormorant Garamond', Georgia, serif;
@@ -674,14 +696,192 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   max-width: 80px;
 }
 
+/* Rails dim when detail is open */
+.repo-rail--peek { opacity: 0.15; pointer-events: none; }
+
+/* ── Expanded repo detail overlay ──────────────── */
+.repo-detail {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) scale(0.9);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 420px;
+  width: 85%;
+  max-height: 80%;
+  overflow-y: auto;
+  padding: 1.5rem 2rem;
+  background: rgba(250, 247, 242, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(212, 205, 196, 0.5);
+  border-radius: 16px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.repo-detail--visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.repo-detail__ring { width: 160px; height: 160px; flex-shrink: 0; }
+
+.repo-detail__title {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0.4rem 0 0;
+  letter-spacing: 0.02em;
+}
+
+.repo-detail__body { width: 100%; }
+
+.repo-detail__loading {
+  font-size: 0.82rem;
+  color: var(--ink-faint);
+  text-align: center;
+  padding: 1rem 0;
+}
+
+/* ── Project breakdown ─────────────────────── */
+.repo-detail__breakdown {
+  width: 100%;
+  margin-bottom: 0.8rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid rgba(212, 205, 196, 0.4);
+}
+
+.repo-detail__tagline {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 0.92rem;
+  font-weight: 600;
+  font-style: italic;
+  color: var(--accent);
+  margin-bottom: 0.4rem;
+}
+
+.repo-detail__summary {
+  font-size: 0.78rem;
+  color: var(--ink-light);
+  line-height: 1.55;
+  margin-bottom: 0.5rem;
+}
+
+.repo-detail__stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.repo-detail__pill {
+  font-size: 0.62rem;
+  font-weight: 500;
+  color: var(--ink-faint);
+  background: rgba(196, 184, 168, 0.25);
+  border: 1px solid rgba(196, 184, 168, 0.4);
+  border-radius: 9999px;
+  padding: 0.1rem 0.5rem;
+  white-space: nowrap;
+}
+
+/* ── Domain accordions ─────────────────────── */
+.repo-detail__accordion {
+  width: 100%;
+  margin-bottom: 0.2rem;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.repo-detail__domain {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.6rem;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.2s;
+  list-style: none;
+}
+.repo-detail__domain::-webkit-details-marker { display: none; }
+.repo-detail__domain::marker { content: ''; }
+
+.repo-detail__domain:hover {
+  background: rgba(196, 184, 168, 0.18);
+}
+
+.repo-detail__accordion[open] > .repo-detail__domain {
+  background: rgba(196, 184, 168, 0.12);
+}
+
+.repo-detail__dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.repo-detail__badge {
+  margin-left: auto;
+  font-size: 0.62rem;
+  font-weight: 500;
+  color: var(--ink-faint);
+  background: rgba(196, 184, 168, 0.3);
+  border-radius: 9999px;
+  padding: 0.05rem 0.4rem;
+  min-width: 1.2rem;
+  text-align: center;
+}
+
+.repo-detail__accordion-body {
+  padding: 0.2rem 0 0.3rem 1.4rem;
+}
+
+.repo-detail__skill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.18rem 0;
+  font-size: 0.75rem;
+  color: var(--ink-light);
+  line-height: 1.4;
+}
+
+.repo-detail__count {
+  font-size: 0.62rem;
+  color: var(--ink-faint);
+  background: rgba(196, 184, 168, 0.2);
+  border-radius: 9999px;
+  padding: 0 0.35rem;
+  white-space: nowrap;
+}
+
+.repo-detail__link {
+  font-size: 0.72rem;
+  color: var(--accent);
+  text-decoration: none;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+.repo-detail__link:hover { opacity: 1; }
+
 /* Repo rails: scale down on mid-size screens, hide on tablets/phones */
 @media (max-width: 1440px) {
   .repo-rail { gap: 0.4rem; }
   .repo-tile { width: 60px; }
   .repo-tile__ring { width: 48px; height: 48px; }
   .repo-tile__name { font-size: 0.55rem; max-width: 60px; }
+  .repo-tile--hover { transform: scale(1.4); }
 }
-@media (max-width: 1024px) { .repo-rail { display: none; } }
+@media (max-width: 1024px) { .repo-rail { display: none; } .repo-detail { display: none; } }
 
 /* Chat panel */
 #chat-panel {
