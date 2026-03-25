@@ -358,7 +358,7 @@ function showStarters() {
   fetch('/api/repositories')
     .then(r => r.ok ? r.json() : [])
     .then(repos => {
-      const names = repos.map(r => r.name);
+      const names = repos.map(r => r.display_name || r.name);
       const pick = names.length ? names[Math.floor(Math.random() * names.length)] : 'PROVE';
       const questions = [
         { label: buildQ(pick), action: 'query', value: buildQ(pick) },

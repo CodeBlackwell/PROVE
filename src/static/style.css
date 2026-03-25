@@ -831,6 +831,17 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   white-space: nowrap;
 }
 
+.repo-detail__url {
+  display: inline-block;
+  margin-top: 0.4rem;
+  font-size: 0.65rem;
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+.repo-detail__url:hover { border-color: var(--accent); }
+
 /* ── Domain accordions ─────────────────────── */
 .repo-detail__accordion {
   width: 100%;

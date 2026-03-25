@@ -181,6 +181,15 @@
         }
         section.appendChild(pills);
       }
+      if (bd.url) {
+        const link = document.createElement('a');
+        link.href = bd.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.className = 'repo-detail__url';
+        link.textContent = bd.url.replace(/^https?:\/\//, '');
+        section.appendChild(link);
+      }
       container.appendChild(section);
     }
 

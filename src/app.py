@@ -196,28 +196,18 @@ def list_repositories(request: Request):
             "OPTIONAL MATCH (r)-[:CONTAINS]->(:File)-[:CONTAINS]->(cs:CodeSnippet)-[:DEMONSTRATES]->(sk:Skill) "
             "OPTIONAL MATCH (d:Domain)-[:CONTAINS]->(:Category)-[:CONTAINS]->(sk) "
             "WITH r, d.name AS domain, count(DISTINCT sk) AS skill_count, count(cs) AS snippet_count "
-            "RETURN r.name AS name, r.private AS private, "
+            "RETURN r.name AS name, r.display_name AS display_name, r.private AS private, "
             "       collect({domain: domain, skill_count: skill_count, snippets: snippet_count}) AS domains "
             "ORDER BY r.name"
         ).data()
 
     return [
-        {"name": r["name"], "display_name": DISPLAY_NAMES.get(r["name"], r["name"]),
+        {"name": r["name"], "display_name": r["display_name"] or r["name"],
          "private": bool(r["private"]) if r["private"] else False,
          "domains": [d for d in r["domains"] if d["domain"]]}
         for r in rows
     ]
 
-
-DISPLAY_NAMES = {
-    "A.U.R.A-Avantlink_Universal_Reporting_Assistant": "A.U.R.A.",
-    "Agent_Blackwell": "Agent Blackwell",
-    "d3_visualization_gallery": "D3 Visualization Gallery",
-    "Flow-Ohana": "Flow Ohana",
-    "POI_Alchemist": "P.o.I Alchemist",
-    "schemancer": "Schemancer",
-    "veridatum": "Veridatum",
-}
 
 REPO_BREAKDOWNS = {
     "SPICE": {
@@ -226,12 +216,14 @@ REPO_BREAKDOWNS = {
                    "Modular service architecture with real-time market data ingestion, "
                    "strategy execution, risk management, and a React dashboard for monitoring live positions.",
         "stack": ["Python", "FastAPI", "React", "PostgreSQL/TimescaleDB", "Redis", "Docker", "AWS"],
+        "url": "https://spice.letitcook.ing",
     },
     "PROVE": {
         "tagline": "Portfolio Reasoning Over Verified Evidence",
         "summary": "This portfolio app. An AI agent reasons over a Neo4j knowledge graph of real code snippets "
                    "to answer questions about skills and experience, backed by vector search and streaming SSE responses.",
         "stack": ["Python", "FastAPI", "Neo4j", "D3.js", "Anthropic", "Voyage AI"],
+        "url": "https://prove.codeblackwell.ai",
     },
     "C.R.A.C.K.": {
         "tagline": "Comprehensive Recon & Attack Creation Kit",
@@ -250,6 +242,7 @@ REPO_BREAKDOWNS = {
         "summary": "13 specialized AI agents debate architecture, security, and UX before you write a line of code. "
                    "3 judges score the result, then packages a complete PRD with transcripts and structured exports.",
         "stack": ["Python", "FastAPI", "AutoGen", "Vue 3", "GPT-4o"],
+        "url": "https://panel.codeblackwell.ai",
     },
     "Agent_Blackwell": {
         "tagline": "Modular AI Agent Orchestration System",
@@ -262,12 +255,14 @@ REPO_BREAKDOWNS = {
         "summary": "Schema definition and validation library with a live playground demo. "
                    "Define data shapes declaratively and generate validators, migrations, and documentation from a single source.",
         "stack": ["Python", "FastAPI", "D3.js", "CodeMirror"],
+        "url": "https://schemancer.codeblackwell.ai",
     },
     "veridatum": {
         "tagline": "Cross-Source DataFrame Comparison Library",
         "summary": "Data validation framework and cross-source comparison engine. "
                    "Compares DataFrames across sources with configurable rules, web monitoring, and detailed diff reports.",
         "stack": ["Python", "FastAPI", "D3.js", "Pandas"],
+        "url": "https://veridatum.codeblackwell.ai",
     },
     "d3_visualization_gallery": {
         "tagline": "D3 Visualization Gallery",
@@ -300,6 +295,12 @@ def get_repository_detail(repo_name: str, request: Request):
     neo4j = clients["neo4j_client"]
     owner = os.getenv("GITHUB_OWNER", "codeblackwell")
     with neo4j.driver.session() as s:
+        meta = s.run(
+            "MATCH (r:Repository {name: $name}) "
+            "RETURN r.tagline AS tagline, r.summary AS summary, r.stack AS stack, r.url AS url",
+            name=repo_name,
+        ).single()
+
         rows = s.run(
             "MATCH (r:Repository {name: $name})-[:CONTAINS]->(f:File)-[:CONTAINS]->(cs:CodeSnippet)-[:DEMONSTRATES]->(sk:Skill) "
             "OPTIONAL MATCH (d:Domain)-[:CONTAINS]->(cat:Category)-[:CONTAINS]->(sk) "
@@ -323,7 +324,14 @@ def get_repository_detail(repo_name: str, request: Request):
         ]
         domains[d].append({"skill": r["skill"], "snippets": r["snippets"], "files": files})
 
-    breakdown = REPO_BREAKDOWNS.get(repo_name, {})
+    # Prefer Neo4j metadata, fall back to hardcoded dict during migration
+    if meta and meta["tagline"]:
+        breakdown = {k: v for k, v in dict(meta).items() if v}
+        if "stack" in breakdown and isinstance(breakdown["stack"], list):
+            pass  # already a list from Neo4j
+    else:
+        breakdown = REPO_BREAKDOWNS.get(repo_name, {})
+
     return {"name": repo_name, "domains": domains, "breakdown": breakdown}
 
 
