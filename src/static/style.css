@@ -284,6 +284,11 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
     transition: max-height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
+  .hero__prove {
+    font-size: 0.95rem;
+    margin-top: 0.3rem;
+  }
+
   /* Hero with smooth fade */
   .hero {
     padding: 0.6rem 0.8rem;
@@ -541,6 +546,10 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   .hero__intro {
     font-size: 0.82rem;
     line-height: 1.4;
+  }
+
+  .hero__prove {
+    font-size: 0.88rem;
   }
 
   #chat-panel {
@@ -2170,7 +2179,7 @@ body.canvas-mode .site-credit a { color: rgba(234, 213, 182, 0.8); }
   }
   .hero-strip__tile { width: 48px; }
   .hero-strip__ring { width: 40px; height: 40px; }
-  .hero-strip__name { opacity: 0; max-height: 0; overflow: hidden; }
+  .hero-strip__name { font-size: 0.48rem; max-width: 40px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 
 /* ── Bottom Sheet ─────────────────────────── */
