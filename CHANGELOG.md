@@ -2,6 +2,13 @@
 
 All notable changes to PROVE are documented here.
 
+## [0.9.1] — 2026-03-25
+
+### Changed
+- Reduced repo-tile hover zoom from 1.5x to 1.25x for subtler interaction
+- Bolder exhibit header (weight 700, wider letter-spacing)
+- Larger, bolder repo-tile names (0.88rem, weight 700, darker ink)
+
 ## [0.9.0] — 2026-03-25
 
 ### Added
