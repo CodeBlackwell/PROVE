@@ -57,10 +57,10 @@ uv run pytest tests/test_db.py            # SQLite persistence, rate limiting
 uv run pytest tests/test_config.py        # subject.toml loading + name-rule rendering
 ```
 
-Unit tests mock all LLM calls and run against a real Neo4j instance (requires
-`docker compose up -d`). The `-m "not e2e"` filter deselects the Playwright
-browser suite under `tests/e2e/`, which needs a live server (`just dev`) and an
-optional `BASE_URL`:
+Unit tests mock all external services — Neo4j and the LLM APIs — so they need no
+running containers. The `-m "not e2e"` filter deselects the Playwright browser
+suite under `tests/e2e/`, which needs a live server (`just dev`) and an optional
+`BASE_URL`:
 
 ```bash
 just dev                  # in one terminal — serves :7860

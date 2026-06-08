@@ -18,9 +18,10 @@ CI runs the same three checks — run them locally first:
 ```bash
 uv run ruff check src tests          # lint
 uv run ruff format --check src tests  # formatting
-uv run pytest tests/ -m "not e2e"     # unit tests (need Neo4j running)
+uv run pytest tests/ -m "not e2e"     # unit tests (no services needed)
 ```
 
+- **Unit tests need no running services** — Neo4j and the LLM APIs are mocked.
 - **`-m "not e2e"`** deselects the Playwright browser suite. Those tests need a
   live server (`just dev`) and `BASE_URL`; run them with `uv run pytest tests/e2e`
   only when you've changed frontend/layout behavior.

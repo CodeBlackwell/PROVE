@@ -196,7 +196,7 @@ PRs welcome 🛠️ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and convent
 ```bash
 uv run ruff check src tests
 uv run ruff format --check src tests
-uv run pytest tests/ -m "not e2e"   # Neo4j must be running
+uv run pytest tests/ -m "not e2e"   # no services needed
 ```
 
 ---

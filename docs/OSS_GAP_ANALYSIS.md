@@ -11,7 +11,8 @@ the absence of one so it can be verified and closed.
 > **Progress (2026-06-08):** P0 hygiene complete (CI, ruff, mypy, pre-commit,
 > community-health files, log cleanup, README split). P1 reusability landed via
 > the *config-driven, keep-defaults* approach (`subject.toml`). Remaining: full
-> asset decouple (deferred), testcontainers (P2), and the RAG eval set (P2).
+> asset decouple (deferred) and the RAG eval set (P2). Service-free unit tests
+> landed 2026-06-08 via lazy app init.
 > Completed items are checked off below.
 
 ---
@@ -26,7 +27,7 @@ Effort: S (<½ day) · M (1–2 days) · L (multi-day).
 | 1 | **Reusability (multi-subject)** | 🔴 | Blocking | L | Subject identity hard-coded: name rules in `src/qa/agent.py:39`, `github_owner="codeblackwell"` default in `settings.py:39` + `agent.py:245,256,319`, domain/URLs in `src/app.py`. Cannot be run for another person without editing code. |
 | 2 | **Continuous Integration** | 🔴 | Blocking | S | No `.github/workflows/`. No automated lint/test/build on push or PR. |
 | 3 | **Lint / format / typecheck** | 🔴 | High | S | No ruff/black/mypy/pyright config in `pyproject.toml`. No `.pre-commit-config.yaml`. |
-| 4 | **Test runnability (fresh clone)** | 🔴 | High | M | Unit tests require a live Neo4j (`test_qa.py`, `test_ingestion.py`, `test_jd_match.py`, `test_api_repos.py`). No testcontainers, no mocking at the `neo4j_client` boundary. |
+| 4 | **Test runnability (fresh clone)** | 🟢 | — | — | Fixed 2026-06-08: made `QAAgent` prompt resolution lazy so importing `app` no longer queries Neo4j. All 67 unit tests now pass with zero services; CI dropped the Neo4j container. |
 | 5 | **E2E test isolation** | 🟡 | Medium | S | ~2,500 lines of Playwright target live `localhost:7860` (`tests/e2e/conftest.py:17`), unmarked, so they pollute the default `pytest` run. |
 | 6 | **Coverage measurement** | 🔴 | Medium | S | No `pytest-cov`, no coverage reporting or threshold. |
 | 7 | **RAG / answer-quality eval** | 🔴 | High | M | README claims A/B results (Haiku vs Sonnet) but no eval harness or golden-question set in repo. Highest-value missing artifact given the product. |
@@ -133,7 +134,7 @@ Grouped by priority. Check off as completed.
 
 ### P2 — Testing & correctness
 
-- [ ] Make unit tests run with zero external services (testcontainers Neo4j or mock the client boundary).
+- [x] Make unit tests run with zero external services — done via lazy `QAAgent` prompt resolution (no testcontainers dependency needed); CI dropped the Neo4j service.
 - [ ] Mark E2E tests `@pytest.mark.e2e`; exclude from default `pytest`; add a gated CI job.
 - [ ] Add `pytest-cov`; report coverage in CI; set a baseline threshold.
 - [ ] Build a RAG eval set: golden questions → expected skills/repos cited.

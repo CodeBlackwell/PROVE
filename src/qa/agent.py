@@ -376,7 +376,14 @@ class QAAgent:
         self.show_private_code = show_private_code
         self.github_owner = github_owner
         self.subject = subject
-        self.system_prompt = self._resolve_prompt()
+        self._system_prompt = None
+
+    @property
+    def system_prompt(self) -> str:
+        # Resolved lazily on first use so importing the app does not query Neo4j.
+        if self._system_prompt is None:
+            self._system_prompt = self._resolve_prompt()
+        return self._system_prompt
 
     def _resolve_prompt(self) -> str:
         fallback = self.subject.name if self.subject else "a software engineer"
