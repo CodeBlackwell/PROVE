@@ -1,16 +1,25 @@
 import json
 
 from src.ingestion.skill_taxonomy import (
-    RESUME_SKILL_ALIASES, CATEGORY_TO_DOMAIN, SKILL_HIERARCHY,
+    CATEGORY_TO_DOMAIN,
+    RESUME_SKILL_ALIASES,
+    SKILL_HIERARCHY,
 )
 
 NODE_COLORS = {
-    "Engineer": "#c4956a", "Repository": "#6b8f9e",
-    "Domain": "#8b7355", "Category": "#b8805a", "Skill": "#4a7856",
-    "Skill_claimed": "#9a9590", "Skill_gap": "#b35a52",
+    "Engineer": "#c4956a",
+    "Repository": "#6b8f9e",
+    "Domain": "#8b7355",
+    "Category": "#b8805a",
+    "Skill": "#4a7856",
+    "Skill_claimed": "#9a9590",
+    "Skill_gap": "#b35a52",
 }
 EDGE_COLORS = {
-    "owns": "#a8a099", "domain": "#8b7355", "category": "#b8805a", "skill": "#7a8b6f",
+    "owns": "#a8a099",
+    "domain": "#8b7355",
+    "category": "#b8805a",
+    "skill": "#7a8b6f",
 }
 PROFICIENCY_SIZE = {"extensive": 18, "moderate": 14, "minimal": 10}
 LEVEL_MAP = {"eng": 0, "repo": 1, "dom": 2, "cat": 3}
@@ -39,7 +48,9 @@ def get_graph_data(neo4j_client):
         for r in session.run("MATCH (r:Repository) RETURN r.name AS name"):
             add_node(f"repo:{r['name']}", label=r["name"], color=NODE_COLORS["Repository"], size=22)
 
-        for r in session.run("MATCH (e:Engineer)-[:OWNS]->(r:Repository) RETURN e.name AS eng, r.name AS repo"):
+        for r in session.run(
+            "MATCH (e:Engineer)-[:OWNS]->(r:Repository) RETURN e.name AS eng, r.name AS repo"
+        ):
             add_edge(f"eng:{r['eng']}", f"repo:{r['repo']}", color=EDGE_COLORS["owns"])
 
         for r in session.run(
@@ -60,7 +71,9 @@ def get_graph_data(neo4j_client):
             "WHERE s.proficiency IS NOT NULL AND s.proficiency <> 'none' "
             "RETURN r.name AS repo, s.name AS skill"
         ):
-            add_edge(f"repo:{r['repo']}", f"skill:{r['skill']}", color=EDGE_COLORS["skill"], dashes=True)
+            add_edge(
+                f"repo:{r['repo']}", f"skill:{r['skill']}", color=EDGE_COLORS["skill"], dashes=True
+            )
 
         for r in session.run(
             "MATCH (e:Engineer)-[:CLAIMS]->(s:Skill) "
@@ -85,12 +98,18 @@ def _top_evidence_links(session, skill_name: str, limit: int = 5) -> list[dict]:
             "RETURN r.name AS repo, r.default_branch AS branch, r.private AS private, "
             "f.path AS path, cs.start_line AS line, cs.language AS lang "
             "ORDER BY cs.start_line LIMIT $limit",
-            name=skill_name, limit=limit,
+            name=skill_name,
+            limit=limit,
         )
         return [
-            {"repo": r["repo"], "branch": r["branch"] or "main",
-             "path": r["path"], "line": r["line"] or 0, "lang": r["lang"] or "",
-             "private": bool(r["private"])}
+            {
+                "repo": r["repo"],
+                "branch": r["branch"] or "main",
+                "path": r["path"],
+                "line": r["line"] or 0,
+                "lang": r["lang"] or "",
+                "private": bool(r["private"]),
+            }
             for r in rows
         ]
     except Exception:
@@ -110,7 +129,7 @@ def _repo_breakdown(session, skill_names: list[str]) -> dict[str, list[dict]]:
             "ORDER BY s.name, cnt DESC",
             names=skill_names,
         )
-        rows = result.data() if hasattr(result, 'data') else list(result)
+        rows = result.data() if hasattr(result, "data") else list(result)
         breakdown: dict[str, list[dict]] = {}
         for row in rows:
             breakdown.setdefault(row["skill"], []).append(
@@ -134,7 +153,7 @@ def get_subgraph(neo4j_client, skill_names: list[str]) -> dict:
             "s.repo_count AS repo_count, collect(DISTINCT r.name) AS repos",
             names=skill_names,
         )
-        all_rows = rows.data() if hasattr(rows, 'data') else list(rows)
+        all_rows = rows.data() if hasattr(rows, "data") else list(rows)
         all_skill_names = [r["skill"] for r in all_rows]
         repo_counts = _repo_breakdown(session, all_skill_names)
 
@@ -147,17 +166,26 @@ def get_subgraph(neo4j_client, skill_names: list[str]) -> dict:
             for nid, label, color, sz, meta in [
                 (did, r["domain"], NODE_COLORS["Domain"], 26, {"type": "domain"}),
                 (cid, r["category"], NODE_COLORS["Category"], 18, {"type": "category"}),
-                (sid, r["skill"], NODE_COLORS["Skill"], size, {
-                    "type": "skill", "status": "demonstrated",
-                    "proficiency": r["proficiency"],
-                    "evidence_count": r["snippet_count"] or 0,
-                    "repo_count": r["repo_count"] or 0,
-                    "evidence_links": evidence_links,
-                    "repo_breakdown": repo_counts.get(r["skill"], []),
-                }),
+                (
+                    sid,
+                    r["skill"],
+                    NODE_COLORS["Skill"],
+                    size,
+                    {
+                        "type": "skill",
+                        "status": "demonstrated",
+                        "proficiency": r["proficiency"],
+                        "evidence_count": r["snippet_count"] or 0,
+                        "repo_count": r["repo_count"] or 0,
+                        "evidence_links": evidence_links,
+                        "repo_breakdown": repo_counts.get(r["skill"], []),
+                    },
+                ),
             ]:
                 if nid not in node_ids:
-                    nodes.append({"id": nid, "label": label, "color": color, "size": sz, "meta": meta})
+                    nodes.append(
+                        {"id": nid, "label": label, "color": color, "size": sz, "meta": meta}
+                    )
                     node_ids.add(nid)
             for frm, to, opts in [(did, cid, {}), (cid, sid, {})]:
                 if (frm, to) not in edge_ids:
@@ -166,8 +194,15 @@ def get_subgraph(neo4j_client, skill_names: list[str]) -> dict:
             for repo in r["repos"]:
                 rid = f"repo:{repo}"
                 if rid not in node_ids:
-                    nodes.append({"id": rid, "label": repo, "color": NODE_COLORS["Repository"],
-                                  "size": 22, "meta": {"type": "repository"}})
+                    nodes.append(
+                        {
+                            "id": rid,
+                            "label": repo,
+                            "color": NODE_COLORS["Repository"],
+                            "size": 22,
+                            "meta": {"type": "repository"},
+                        }
+                    )
                     node_ids.add(rid)
                 if (rid, sid) not in edge_ids:
                     edges.append({"from": rid, "to": sid, "dashes": True})
@@ -221,39 +256,77 @@ def get_gap_overlay(neo4j_client, entity_refs: dict) -> dict:
 
             if target_skill:
                 # Near-match alias (e.g., React.js → React): render alias connected to target
-                add_node(sid, label=name, color=NODE_COLORS["Skill_claimed"], size=8,
-                         meta={"type": "skill", "status": "claimed_only",
-                               "alias_of": target_skill, "evidence_count": 0})
+                add_node(
+                    sid,
+                    label=name,
+                    color=NODE_COLORS["Skill_claimed"],
+                    size=8,
+                    meta={
+                        "type": "skill",
+                        "status": "claimed_only",
+                        "alias_of": target_skill,
+                        "evidence_count": 0,
+                    },
+                )
                 target_sid = f"skill:{target_skill}"
                 add_edge(sid, target_sid, dashes=[5, 5], color=NODE_COLORS["Skill_claimed"])
             elif cat and domain:
                 # Broad term placed under category (e.g., Python → Web Frameworks)
                 did, cid = f"dom:{domain}", f"cat:{cat}"
-                add_node(did, label=domain, color=NODE_COLORS["Domain"], size=26,
-                         meta={"type": "domain"})
-                add_node(cid, label=cat, color=NODE_COLORS["Category"], size=18,
-                         meta={"type": "category"})
-                add_node(sid, label=name, color=NODE_COLORS["Skill_claimed"], size=8,
-                         meta={"type": "skill", "status": "claimed_only",
-                               "evidence_count": 0, "placed_under": cat})
+                add_node(
+                    did, label=domain, color=NODE_COLORS["Domain"], size=26, meta={"type": "domain"}
+                )
+                add_node(
+                    cid,
+                    label=cat,
+                    color=NODE_COLORS["Category"],
+                    size=18,
+                    meta={"type": "category"},
+                )
+                add_node(
+                    sid,
+                    label=name,
+                    color=NODE_COLORS["Skill_claimed"],
+                    size=8,
+                    meta={
+                        "type": "skill",
+                        "status": "claimed_only",
+                        "evidence_count": 0,
+                        "placed_under": cat,
+                    },
+                )
                 add_edge(did, cid)
                 add_edge(cid, sid, dashes=[5, 5])
             else:
                 # No alias: floating claimed node
-                add_node(sid, label=name, color=NODE_COLORS["Skill_claimed"], size=8,
-                         meta={"type": "skill", "status": "claimed_only", "evidence_count": 0})
+                add_node(
+                    sid,
+                    label=name,
+                    color=NODE_COLORS["Skill_claimed"],
+                    size=8,
+                    meta={"type": "skill", "status": "claimed_only", "evidence_count": 0},
+                )
 
         elif ref.status == "not_found_but_related":
-            add_node(sid, label=name, color=NODE_COLORS["Skill_gap"], size=10,
-                     meta={"type": "skill", "status": "gap",
-                           "related_demonstrated": ref.related})
+            add_node(
+                sid,
+                label=name,
+                color=NODE_COLORS["Skill_gap"],
+                size=10,
+                meta={"type": "skill", "status": "gap", "related_demonstrated": ref.related},
+            )
             for related_name in ref.related:
                 rel_sid = f"skill:{related_name}"
                 add_edge(sid, rel_sid, dashes=[2, 4], color=NODE_COLORS["Skill_gap"])
 
         elif ref.status in ("not_found", "inferred"):
-            add_node(sid, label=name, color=NODE_COLORS["Skill_gap"], size=8,
-                     meta={"type": "skill", "status": "gap", "evidence_count": 0})
+            add_node(
+                sid,
+                label=name,
+                color=NODE_COLORS["Skill_gap"],
+                size=8,
+                meta={"type": "skill", "status": "gap", "evidence_count": 0},
+            )
 
     return {"nodes": nodes, "edges": edges}
 
@@ -294,6 +367,7 @@ def build_query_subgraph(neo4j_client, entity_refs: dict) -> dict:
 
 def build_competency_graph(neo4j_client):
     import html as html_mod
+
     data = get_graph_data(neo4j_client)
     nodes, edges = data["nodes"], data["edges"]
 

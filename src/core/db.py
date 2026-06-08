@@ -3,7 +3,6 @@
 import json
 import sqlite3
 import threading
-from datetime import datetime, timezone
 from pathlib import Path
 
 _DEFAULT_DB_PATH = Path("data/prove.db")
@@ -45,6 +44,22 @@ CREATE TABLE IF NOT EXISTS rate_limits (
 );
 
 CREATE INDEX IF NOT EXISTS idx_rl_visitor ON rate_limits(visitor_id, endpoint, created_at);
+
+CREATE TABLE IF NOT EXISTS ingest_costs (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    repo          TEXT NOT NULL,
+    file_path     TEXT NOT NULL,
+    snippet_name  TEXT NOT NULL,
+    phase         TEXT NOT NULL,
+    model         TEXT,
+    input_tokens  INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    cost_usd      REAL NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_ingest_repo ON ingest_costs(repo);
+CREATE INDEX IF NOT EXISTS idx_ingest_file ON ingest_costs(repo, file_path);
 """
 
 
@@ -75,12 +90,10 @@ class Database:
     # Conversations
     # ------------------------------------------------------------------
 
-    def save_message(self, session_id: str, role: str, content: str,
-                     metadata: dict | None = None):
+    def save_message(self, session_id: str, role: str, content: str, metadata: dict | None = None):
         conn = self._get_conn()
         conn.execute(
-            "INSERT INTO conversations (session_id, role, content, metadata) "
-            "VALUES (?, ?, ?, ?)",
+            "INSERT INTO conversations (session_id, role, content, metadata) VALUES (?, ?, ?, ?)",
             (session_id, role, content, json.dumps(metadata) if metadata else None),
         )
         conn.commit()
@@ -126,18 +139,29 @@ class Database:
     # Logs
     # ------------------------------------------------------------------
 
-    def save_log(self, timestamp: str, level: str, event: str,
-                 session_id: str | None = None, fields: dict | None = None):
+    def save_log(
+        self,
+        timestamp: str,
+        level: str,
+        event: str,
+        session_id: str | None = None,
+        fields: dict | None = None,
+    ):
         conn = self._get_conn()
         conn.execute(
-            "INSERT INTO logs (timestamp, level, event, session_id, fields) "
-            "VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO logs (timestamp, level, event, session_id, fields) VALUES (?, ?, ?, ?, ?)",
             (timestamp, level, event, session_id, json.dumps(fields) if fields else None),
         )
         conn.commit()
 
-    def query_logs(self, session_id: str | None = None, event: str | None = None,
-                   level: str | None = None, limit: int = 100, offset: int = 0) -> list[dict]:
+    def query_logs(
+        self,
+        session_id: str | None = None,
+        event: str | None = None,
+        level: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[dict]:
         clauses = []
         params: list = []
         if session_id:
@@ -170,14 +194,14 @@ class Database:
     # Rate limiting
     # ------------------------------------------------------------------
 
-    def check_rate_limit(self, visitor_id: str, endpoint: str,
-                         max_requests: int, window_seconds: int) -> tuple[bool, int]:
+    def check_rate_limit(
+        self, visitor_id: str, endpoint: str, max_requests: int, window_seconds: int
+    ) -> tuple[bool, int]:
         """Check if a visitor is within rate limits.
 
         Returns (allowed: bool, remaining: int).
         """
         conn = self._get_conn()
-        cutoff = datetime.now(timezone.utc).isoformat()
 
         # Count requests in the window
         row = conn.execute(
@@ -207,6 +231,49 @@ class Database:
             (f"-{older_than_seconds} seconds",),
         )
         conn.commit()
+
+    # ------------------------------------------------------------------
+    # Ingest costs
+    # ------------------------------------------------------------------
+
+    def insert_ingest_costs(self, rows: list[tuple]):
+        """rows: (repo, file_path, snippet_name, phase, model, in_tok, out_tok, cost_usd)."""
+        if not rows:
+            return
+        conn = self._get_conn()
+        conn.executemany(
+            "INSERT INTO ingest_costs "
+            "(repo, file_path, snippet_name, phase, model, input_tokens, output_tokens, cost_usd) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            rows,
+        )
+        conn.commit()
+
+    def repo_cost(self, repo: str) -> dict:
+        conn = self._get_conn()
+        r = conn.execute(
+            "SELECT COALESCE(SUM(cost_usd), 0) AS cost_usd, "
+            "COALESCE(SUM(input_tokens), 0) AS input_tokens, "
+            "COALESCE(SUM(output_tokens), 0) AS output_tokens "
+            "FROM ingest_costs WHERE repo = ?",
+            (repo,),
+        ).fetchone()
+        return dict(r)
+
+    def ingest_cost_rollup(self, by: str = "repo") -> list[dict]:
+        group = {
+            "repo": "repo",
+            "file": "repo, file_path",
+            "snippet": "repo, file_path, snippet_name",
+        }[by]
+        conn = self._get_conn()
+        rows = conn.execute(
+            f"SELECT {group}, "
+            "SUM(cost_usd) AS cost_usd, SUM(input_tokens) AS input_tokens, "
+            "SUM(output_tokens) AS output_tokens, COUNT(*) AS rows "
+            f"FROM ingest_costs GROUP BY {group} ORDER BY cost_usd DESC",
+        ).fetchall()
+        return [dict(r) for r in rows]
 
     def close(self):
         if hasattr(self._local, "conn"):

@@ -49,10 +49,14 @@ def test_tool_result_message_merging():
     messages = [
         {"role": "system", "content": "sys"},
         {"role": "user", "content": "q"},
-        {"role": "assistant", "content": None, "tool_calls": [
-            {"id": "tc1", "function": {"name": "search", "arguments": '{"q": "a"}'}},
-            {"id": "tc2", "function": {"name": "search", "arguments": '{"q": "b"}'}},
-        ]},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {"id": "tc1", "function": {"name": "search", "arguments": '{"q": "a"}'}},
+                {"id": "tc2", "function": {"name": "search", "arguments": '{"q": "b"}'}},
+            ],
+        },
         {"role": "tool", "tool_call_id": "tc1", "content": "result1"},
         {"role": "tool", "tool_call_id": "tc2", "content": "result2"},
     ]
@@ -94,7 +98,9 @@ def test_response_shaping_tool_calls_only():
 
 def test_response_shaping_mixed():
     text_block = SimpleNamespace(type="text", text="Let me search")
-    tool_block = SimpleNamespace(type="tool_use", id="tc_2", name="get_evidence", input={"skill_name": "Python"})
+    tool_block = SimpleNamespace(
+        type="tool_use", id="tc_2", name="get_evidence", input={"skill_name": "Python"}
+    )
     response = MagicMock()
     response.content = [text_block, tool_block]
     shaped = _shape_response(response)
@@ -105,7 +111,9 @@ def test_response_shaping_mixed():
 
 def test_arguments_is_json_string():
     """Verify that tool call arguments are serialized as JSON strings, not dicts."""
-    tool_block = MagicMock(type="tool_use", id="tc_3", name="find", input={"skills_csv": "Python,Go"})
+    tool_block = MagicMock(
+        type="tool_use", id="tc_3", name="find", input={"skills_csv": "Python,Go"}
+    )
     response = MagicMock()
     response.content = [tool_block]
     shaped = _shape_response(response)
@@ -126,10 +134,12 @@ def test_chat_calls_api(mock_anthropic_cls):
     mock_client.messages.create.return_value = mock_response
 
     client = ClaudeChatClient(api_key="test-key", model="claude-sonnet-4-20250514")
-    result = client.chat([
-        {"role": "system", "content": "Be helpful"},
-        {"role": "user", "content": "Hi"},
-    ])
+    result = client.chat(
+        [
+            {"role": "system", "content": "Be helpful"},
+            {"role": "user", "content": "Hi"},
+        ]
+    )
 
     assert result.choices[0].message.content == "response text"
     mock_client.messages.create.assert_called_once()

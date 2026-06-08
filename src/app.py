@@ -1,5 +1,5 @@
-import json
 import hashlib
+import json
 import mimetypes
 import os
 import time
@@ -8,7 +8,6 @@ from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
 
-mimetypes.add_type("image/webp", ".webp")
 from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -21,9 +20,12 @@ from src.jd_match import JDMatchAgent
 from src.jd_match.extract import extract_text
 from src.qa.agent import QAAgent
 
+mimetypes.add_type("image/webp", ".webp")
+
 settings = Settings.load()
 clients = build_clients(settings)
 db = clients["db"]
+
 
 # Cache-bust key: hash of all static files so browsers refetch on deploy
 def _static_hash() -> str:
@@ -32,6 +34,7 @@ def _static_hash() -> str:
     for f in sorted(static_dir.glob("*.min.css")) + sorted(static_dir.glob("*.min.js")):
         h.update(f.read_bytes())
     return h.hexdigest()[:8]
+
 
 STATIC_V = _static_hash()
 DEV_MODE = os.getenv("DEV_MODE", "").lower() in ("1", "true", "yes")
@@ -45,13 +48,19 @@ _SKIP_ASSET_PATHS = (
 # Attach SQLite as additional log sink (after DB is created)
 logger.attach_db(db)
 
-qa_agent = QAAgent(clients["neo4j_client"], clients["chat_client"], clients["embed_client"],
-                   show_private_code=settings.show_private_code,
-                   github_owner=settings.github_owner)
+qa_agent = QAAgent(
+    clients["neo4j_client"],
+    clients["chat_client"],
+    clients["embed_client"],
+    show_private_code=settings.show_private_code,
+    github_owner=settings.github_owner,
+    subject=settings.subject,
+)
 jd_agent = JDMatchAgent(clients["neo4j_client"], clients["chat_client"], clients["embed_client"])
 
-logger.info("app.startup", chat_provider=settings.chat_provider,
-            embed_provider=settings.embed_provider)
+logger.info(
+    "app.startup", chat_provider=settings.chat_provider, embed_provider=settings.embed_provider
+)
 
 
 @asynccontextmanager
@@ -69,8 +78,8 @@ MAX_HISTORY_TURNS = 20
 
 # Rate limits: (max_requests, window_seconds)
 RATE_LIMITS = {
-    "chat": (20, 3600),     # 20 queries/hour — each costs ~$0.01
-    "read": (60, 3600),     # 60 reads/hour for browsing endpoints
+    "chat": (20, 3600),  # 20 queries/hour — each costs ~$0.01
+    "read": (60, 3600),  # 60 reads/hour for browsing endpoints
 }
 
 
@@ -82,10 +91,23 @@ def _visitor_id(request: Request, fp: str | None = None) -> str:
 
 
 _BOT_UA_FRAGMENTS = (
-    "facebookexternalhit", "twitterbot", "slackbot", "linkedinbot",
-    "whatsapp", "telegrambot", "discordbot", "googlebot", "bingbot",
-    "applebot", "iframely", "opengraph", "embedly", "showyoubot",
-    "outbrain", "pinterestbot", "bitlybot",
+    "facebookexternalhit",
+    "twitterbot",
+    "slackbot",
+    "linkedinbot",
+    "whatsapp",
+    "telegrambot",
+    "discordbot",
+    "googlebot",
+    "bingbot",
+    "applebot",
+    "iframely",
+    "opengraph",
+    "embedly",
+    "showyoubot",
+    "outbrain",
+    "pinterestbot",
+    "bitlybot",
 )
 
 BYPASS_TOKEN = os.getenv("RATE_LIMIT_BYPASS", "")
@@ -108,7 +130,9 @@ def _skip_limit(request: Request) -> bool:
     return any(bot in ua for bot in _BOT_UA_FRAGMENTS)
 
 
-def _check_limit(visitor_id: str, bucket: str, request: Request | None = None) -> JSONResponse | None:
+def _check_limit(
+    visitor_id: str, bucket: str, request: Request | None = None
+) -> JSONResponse | None:
     """Return a 429 response if rate limited, else None. Skips for localhost, bots, and bypass token."""
     if request and _skip_limit(request):
         return None
@@ -117,8 +141,10 @@ def _check_limit(visitor_id: str, bucket: str, request: Request | None = None) -
     if not allowed:
         logger.warning("rate_limit.exceeded", visitor_id=visitor_id, bucket=bucket)
         return JSONResponse(
-            {"error": "Rate limit exceeded. Please try again later.",
-             "retry_after_seconds": window},
+            {
+                "error": "Rate limit exceeded. Please try again later.",
+                "retry_after_seconds": window,
+            },
             status_code=429,
             headers={"Retry-After": str(window)},
         )
@@ -130,13 +156,17 @@ def index(request: Request):
     with clients["neo4j_client"].driver.session() as s:
         r = s.run("MATCH (e:Engineer) RETURN e.name AS name LIMIT 1").single()
     name = r["name"] if r else "Engineer"
-    return templates.TemplateResponse("index.html", {
-        "request": request, "name": name,
-        "github_owner": settings.github_owner,
-        "cdn_base": settings.cdn_base,
-        "static_v": STATIC_V,
-        "dev_mode": DEV_MODE,
-    })
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "name": name,
+            "github_owner": settings.github_owner,
+            "cdn_base": settings.cdn_base,
+            "static_v": STATIC_V,
+            "dev_mode": DEV_MODE,
+        },
+    )
 
 
 @app.get("/api/chat")
@@ -183,9 +213,15 @@ def chat(request: Request, q: str, session_id: str | None = None, fp: str | None
 
         latency = int((time.perf_counter() - t0) * 1000)
         logger.end_session()
-        logger.log_request(method="GET", path="/api/chat", query=q,
-                           latency_ms=latency, session_id=sid,
-                           visitor_id=vid, history_turns=len(history) // 2)
+        logger.log_request(
+            method="GET",
+            path="/api/chat",
+            query=q,
+            latency_ms=latency,
+            session_id=sid,
+            visitor_id=vid,
+            history_turns=len(history) // 2,
+        )
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 
@@ -193,6 +229,7 @@ def chat(request: Request, q: str, session_id: str | None = None, fp: str | None
 # ---------------------------------------------------------------------------
 # Repository overview (repo tiles on landing page)
 # ---------------------------------------------------------------------------
+
 
 @app.get("/api/repositories")
 def list_repositories(request: Request):
@@ -214,9 +251,12 @@ def list_repositories(request: Request):
         ).data()
 
     return [
-        {"name": r["name"], "display_name": r["display_name"] or r["name"],
-         "private": bool(r["private"]) if r["private"] else False,
-         "domains": [d for d in r["domains"] if d["domain"]]}
+        {
+            "name": r["name"],
+            "display_name": r["display_name"] or r["name"],
+            "private": bool(r["private"]) if r["private"] else False,
+            "domains": [d for d in r["domains"] if d["domain"]],
+        }
         for r in rows
     ]
 
@@ -225,73 +265,73 @@ REPO_BREAKDOWNS = {
     "SPICE": {
         "tagline": "Self-Piloting Intelligent Capital Engine",
         "summary": "Full-stack autonomous trading system that runs 24/7 on AWS. "
-                   "Modular service architecture with real-time market data ingestion, "
-                   "strategy execution, risk management, and a React dashboard for monitoring live positions.",
+        "Modular service architecture with real-time market data ingestion, "
+        "strategy execution, risk management, and a React dashboard for monitoring live positions.",
         "stack": ["Python", "FastAPI", "React", "PostgreSQL/TimescaleDB", "Redis", "Docker", "AWS"],
         "url": "https://spice.letitcook.ing",
     },
     "PROVE": {
         "tagline": "Portfolio Reasoning Over Verified Evidence",
         "summary": "This portfolio app. An AI agent reasons over a Neo4j knowledge graph of real code snippets "
-                   "to answer questions about skills and experience, backed by vector search and streaming SSE responses.",
+        "to answer questions about skills and experience, backed by vector search and streaming SSE responses.",
         "stack": ["Python", "FastAPI", "Neo4j", "D3.js", "Anthropic", "Voyage AI"],
-        "url": "https://prove.codeblackwell.ai",
+        "url": f"https://{settings.domain}",
     },
     "C.R.A.C.K.": {
         "tagline": "Comprehensive Recon & Attack Creation Kit",
         "summary": "Modular pentesting toolkit featuring 700+ commands, 50+ attack chains, and Neo4j-powered "
-                   "attack path visualization. Because methodology beats memorization.",
+        "attack path visualization. Because methodology beats memorization.",
         "stack": ["Python", "Bash", "Nmap", "Burp Suite", "Metasploit", "Neo4j", "Docker"],
     },
     "Flow-Ohana": {
         "tagline": "Collaborative Workflow Platform",
         "summary": "Full-stack team collaboration app with real-time updates, role-based access control, "
-                   "and a rich frontend. End-to-end tested with comprehensive integration coverage.",
+        "and a rich frontend. End-to-end tested with comprehensive integration coverage.",
         "stack": ["Python", "FastAPI", "React", "PostgreSQL", "WebSockets", "Docker"],
     },
     "PANEL": {
         "tagline": "Multi-Agent PRD Stress-Testing System",
         "summary": "13 specialized AI agents debate architecture, security, and UX before you write a line of code. "
-                   "3 judges score the result, then packages a complete PRD with transcripts and structured exports.",
+        "3 judges score the result, then packages a complete PRD with transcripts and structured exports.",
         "stack": ["Python", "FastAPI", "AutoGen", "Vue 3", "GPT-4o"],
         "url": "https://panel.codeblackwell.ai",
     },
     "Agent_Blackwell": {
         "tagline": "Modular AI Agent Orchestration System",
         "summary": "A symphony of expert AI agents communicating via the Agent Communication Protocol (ACP). "
-                   "Specialized agents seamlessly integrate their capabilities to deconstruct and resolve intricate challenges.",
+        "Specialized agents seamlessly integrate their capabilities to deconstruct and resolve intricate challenges.",
         "stack": ["Python", "Redis", "Pinecone", "MCP", "Linear API"],
     },
     "kata": {
         "tagline": "Declarative Schema Engine",
         "summary": "Schema definition and validation library with a live playground demo. "
-                   "Define data shapes declaratively and generate validators, migrations, and documentation from a single source.",
+        "Define data shapes declaratively and generate validators, migrations, and documentation from a single source.",
         "stack": ["Python", "FastAPI", "D3.js", "CodeMirror"],
         "url": "https://kata.codeblackwell.ai",
     },
     "veridatum": {
         "tagline": "Cross-Source DataFrame Comparison Library",
         "summary": "Data validation framework and cross-source comparison engine. "
-                   "Compares DataFrames across sources with configurable rules, web monitoring, and detailed diff reports.",
+        "Compares DataFrames across sources with configurable rules, web monitoring, and detailed diff reports.",
         "stack": ["Python", "FastAPI", "D3.js", "Pandas"],
         "url": "https://veridatum.codeblackwell.ai",
     },
     "d3_visualization_gallery": {
         "tagline": "D3 Visualization Gallery",
         "summary": "Collection of D3.js visualizations built with TypeScript and modern React. "
-                   "Explores different chart types, layouts, and interaction patterns with hot reloading.",
+        "Explores different chart types, layouts, and interaction patterns with hot reloading.",
         "stack": ["TypeScript", "React", "D3.js", "Vite"],
     },
     "POI_Alchemist": {
         "tagline": "Point-of-Interest Data Enrichment",
         "summary": "Geospatial data pipeline that enriches raw location data with contextual metadata, "
-                   "scoring, and categorization using ML classifiers and external APIs.",
+        "scoring, and categorization using ML classifiers and external APIs.",
         "stack": ["Python", "Pandas", "scikit-learn", "GeoPandas"],
     },
     "A.U.R.A-Avantlink_Universal_Reporting_Assistant": {
         "tagline": "Avantlink Universal Reporting Assistant",
         "summary": "Fine-tuned code generation model for automated affiliate marketing report creation. "
-                   "Custom training pipeline with data preprocessing, model training, and inference serving.",
+        "Custom training pipeline with data preprocessing, model training, and inference serving.",
         "stack": ["Python", "Transformers", "PyTorch"],
     },
 }
@@ -315,8 +355,9 @@ def get_repository_detail(repo_name: str, request: Request):
 
         rows = s.run(
             "MATCH (r:Repository {name: $name})-[:CONTAINS]->(f:File)-[:CONTAINS]->(cs:CodeSnippet)-[:DEMONSTRATES]->(sk:Skill) "
-            "WHERE true " + _SKIP_ASSET_PATHS +
-            "OPTIONAL MATCH (d:Domain)-[:CONTAINS]->(cat:Category)-[:CONTAINS]->(sk) "
+            "WHERE true "
+            + _SKIP_ASSET_PATHS
+            + "OPTIONAL MATCH (d:Domain)-[:CONTAINS]->(cat:Category)-[:CONTAINS]->(sk) "
             "RETURN d.name AS domain, sk.name AS skill, count(cs) AS snippets, "
             "       collect(DISTINCT {file: f.path, start: cs.start_line, branch: r.default_branch})[0..3] AS files "
             "ORDER BY domain, snippets DESC",
@@ -333,7 +374,8 @@ def get_repository_detail(repo_name: str, request: Request):
             domains[d] = []
         files = [
             f"https://github.com/{owner}/{repo_name}/blob/{f['branch'] or 'main'}/{f['file']}#L{f['start']}"
-            for f in (r["files"] or []) if f.get("file")
+            for f in (r["files"] or [])
+            if f.get("file")
         ]
         domains[d].append({"skill": r["skill"], "snippets": r["snippets"], "files": files})
 
@@ -352,6 +394,7 @@ def get_repository_detail(repo_name: str, request: Request):
 # Repo-scoped skill snippets (lazy-loaded by detail view accordions)
 # ---------------------------------------------------------------------------
 
+
 @lru_cache(maxsize=128)
 def _repo_skill_snippets(repo_name: str, skill_name: str):
     neo4j = clients["neo4j_client"]
@@ -359,12 +402,14 @@ def _repo_skill_snippets(repo_name: str, skill_name: str):
     with neo4j.driver.session() as s:
         rows = s.run(
             "MATCH (r:Repository {name: $repo})-[:CONTAINS]->(f:File)-[:CONTAINS]->(cs:CodeSnippet)-[:DEMONSTRATES]->(sk:Skill {name: $skill}) "
-            "WHERE true " + _SKIP_ASSET_PATHS +
-            "RETURN r.default_branch AS branch, r.private AS private, f.path AS path, "
+            "WHERE true "
+            + _SKIP_ASSET_PATHS
+            + "RETURN r.default_branch AS branch, r.private AS private, f.path AS path, "
             "cs.name AS snippet_name, cs.context AS context, cs.content AS content, "
             "cs.start_line AS start_line, cs.end_line AS end_line, cs.language AS lang "
             "ORDER BY f.path, cs.start_line",
-            repo=repo_name, skill=skill_name,
+            repo=repo_name,
+            skill=skill_name,
         ).data()
     return [
         {
@@ -399,6 +444,7 @@ def repo_skill_snippets(repo_name: str, skill_name: str, request: Request):
 # History & log browsing endpoints
 # ---------------------------------------------------------------------------
 
+
 @app.get("/api/sessions")
 def list_sessions(request: Request, limit: int = 50, offset: int = 0):
     vid = _visitor_id(request)
@@ -421,19 +467,27 @@ def get_session(request: Request, session_id: str):
 
 
 @app.get("/api/logs")
-def query_logs(request: Request, session_id: str | None = None, event: str | None = None,
-               level: str | None = None, limit: int = 100, offset: int = 0):
+def query_logs(
+    request: Request,
+    session_id: str | None = None,
+    event: str | None = None,
+    level: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+):
     vid = _visitor_id(request)
     blocked = _check_limit(vid, "read", request)
     if blocked:
         return blocked
-    return db.query_logs(session_id=session_id, event=event, level=level,
-                         limit=limit, offset=offset)
+    return db.query_logs(
+        session_id=session_id, event=event, level=level, limit=limit, offset=offset
+    )
 
 
 # ---------------------------------------------------------------------------
 # Skill reference detail endpoint
 # ---------------------------------------------------------------------------
+
 
 @app.get("/api/skills/{skill_name}/references")
 def skill_references(request: Request, skill_name: str):
@@ -459,8 +513,9 @@ def skill_references(request: Request, skill_name: str):
         rows = s.run(
             "MATCH (f:File)-[:CONTAINS]->(cs:CodeSnippet)-[d:DEMONSTRATES]->(sk:Skill {name: $name}) "
             "MATCH (r:Repository)-[:CONTAINS]->(f) "
-            "WHERE true " + _SKIP_ASSET_PATHS +
-            "RETURN r.name AS repo, r.default_branch AS branch, r.private AS private, f.path AS path, "
+            "WHERE true "
+            + _SKIP_ASSET_PATHS
+            + "RETURN r.name AS repo, r.default_branch AS branch, r.private AS private, f.path AS path, "
             "cs.name AS snippet_name, cs.context AS context, cs.content AS content, "
             "cs.start_line AS start_line, cs.end_line AS end_line, "
             "cs.language AS lang, d.first_seen AS first_seen, d.last_seen AS last_seen, "
@@ -504,9 +559,11 @@ def skill_references(request: Request, skill_name: str):
 _MAX_UPLOAD_BYTES = 2 * 1024 * 1024  # 2 MB
 _MAX_TEXT_CHARS = 50_000  # ~12 pages of text
 
+
 @app.post("/api/jd-match")
-async def jd_match(request: Request, file: UploadFile = File(None),
-                   text: str = Form(None), fp: str = Form(None)):
+async def jd_match(
+    request: Request, file: UploadFile = File(None), text: str = Form(None), fp: str = Form(None)
+):
     vid = _visitor_id(request, fp)
     blocked = _check_limit(vid, "chat", request)
     if blocked:
@@ -532,8 +589,9 @@ async def jd_match(request: Request, file: UploadFile = File(None),
 
     logger.info("jd_match.start", text_length=len(jd_text))
     report = jd_agent.match(jd_text)
-    logger.info("jd_match.done", match_pct=report.match_percentage,
-                req_count=len(report.requirements))
+    logger.info(
+        "jd_match.done", match_pct=report.match_percentage, req_count=len(report.requirements)
+    )
     return {
         "match_percentage": report.match_percentage,
         "summary": report.summary,
@@ -563,18 +621,23 @@ async def jd_match(request: Request, file: UploadFile = File(None),
 # SEO: Sitemap & skill HTML views
 # ---------------------------------------------------------------------------
 
+
 @app.get("/sitemap.xml", response_class=Response)
 def sitemap():
     neo4j = clients["neo4j_client"]
-    urls = ['  <url><loc>https://prove.codeblackwell.ai/</loc><priority>1.0</priority><changefreq>weekly</changefreq></url>']
+    base = f"https://{settings.domain}"
+    urls = [
+        f"  <url><loc>{base}/</loc><priority>1.0</priority><changefreq>weekly</changefreq></url>"
+    ]
 
     with neo4j.driver.session() as s:
         rows = s.run("MATCH (sk:Skill) RETURN sk.name AS name ORDER BY sk.name").data()
 
     for row in rows:
-        name = row["name"].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         slug = row["name"].replace(" ", "-").lower()
-        urls.append(f'  <url><loc>https://prove.codeblackwell.ai/skills/{slug}</loc><priority>0.6</priority><changefreq>monthly</changefreq></url>')
+        urls.append(
+            f"  <url><loc>{base}/skills/{slug}</loc><priority>0.6</priority><changefreq>monthly</changefreq></url>"
+        )
 
     xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
     xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
@@ -600,17 +663,26 @@ def skill_page(request: Request, skill_slug: str):
         ).single()
 
     if not meta:
-        return templates.TemplateResponse("skill.html", {
-            "request": request, "skill": None, "cdn_base": settings.cdn_base, "static_v": STATIC_V, "dev_mode": DEV_MODE,
-        }, status_code=404)
+        return templates.TemplateResponse(
+            "skill.html",
+            {
+                "request": request,
+                "skill": None,
+                "cdn_base": settings.cdn_base,
+                "static_v": STATIC_V,
+                "dev_mode": DEV_MODE,
+            },
+            status_code=404,
+        )
 
     with neo4j.driver.session() as s:
         rows = s.run(
             "MATCH (f:File)-[:CONTAINS]->(cs:CodeSnippet)-[:DEMONSTRATES]->(sk:Skill) "
             "WHERE toLower(sk.name) = toLower($name) "
             "MATCH (r:Repository)-[:CONTAINS]->(f) "
-            "WHERE true " + _SKIP_ASSET_PATHS +
-            "RETURN r.name AS repo, f.path AS path, cs.name AS snippet_name, cs.context AS context, "
+            "WHERE true "
+            + _SKIP_ASSET_PATHS
+            + "RETURN r.name AS repo, f.path AS path, cs.name AS snippet_name, cs.context AS context, "
             "cs.start_line AS start_line, cs.end_line AS end_line, r.private AS private "
             "ORDER BY r.name, f.path LIMIT 10",
             name=skill_name,
@@ -619,37 +691,39 @@ def skill_page(request: Request, skill_slug: str):
         # Get engineer name
         eng = s.run("MATCH (e:Engineer) RETURN e.name AS name LIMIT 1").single()
 
-    return templates.TemplateResponse("skill.html", {
-        "request": request,
-        "skill": {
-            "name": meta["name"],
-            "domain": meta["domain"],
-            "category": meta["category"],
-            "proficiency": meta["proficiency"] or "minimal",
-            "snippet_count": meta["snippet_count"] or 0,
-            "repo_count": meta["repo_count"] or 0,
-            "references": [
-                {
-                    "repo": r["repo"],
-                    "path": r["path"],
-                    "snippet_name": r["snippet_name"],
-                    "context": r["context"] or "",
-                    "start_line": r["start_line"] or 0,
-                    "end_line": r["end_line"] or 0,
-                    "private": bool(r["private"]) if r["private"] is not None else False,
-                }
-                for r in rows
-            ],
+    return templates.TemplateResponse(
+        "skill.html",
+        {
+            "request": request,
+            "skill": {
+                "name": meta["name"],
+                "domain": meta["domain"],
+                "category": meta["category"],
+                "proficiency": meta["proficiency"] or "minimal",
+                "snippet_count": meta["snippet_count"] or 0,
+                "repo_count": meta["repo_count"] or 0,
+                "references": [
+                    {
+                        "repo": r["repo"],
+                        "path": r["path"],
+                        "snippet_name": r["snippet_name"],
+                        "context": r["context"] or "",
+                        "start_line": r["start_line"] or 0,
+                        "end_line": r["end_line"] or 0,
+                        "private": bool(r["private"]) if r["private"] is not None else False,
+                    }
+                    for r in rows
+                ],
+            },
+            "engineer_name": eng["name"] if eng else "Engineer",
+            "cdn_base": settings.cdn_base,
+            "static_v": STATIC_V,
+            "github_owner": settings.github_owner,
+            "dev_mode": DEV_MODE,
         },
-        "engineer_name": eng["name"] if eng else "Engineer",
-        "cdn_base": settings.cdn_base,
-        "static_v": STATIC_V,
-        "github_owner": settings.github_owner,
-        "dev_mode": DEV_MODE,
-    })
+    )
 
 
 # ---------------------------------------------------------------------------
 # Periodic cleanup (runs on startup, then every hour via background task)
 # ---------------------------------------------------------------------------
-

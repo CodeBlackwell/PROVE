@@ -1,0 +1,21 @@
+# Subject identity for this PROVE instance.
+# Defaults below preserve the original deployment; change these to run PROVE for
+# someone else. Env vars GITHUB_OWNER and PROVE_DOMAIN override the matching keys.
+
+# Display name (the engineer's full name). The agent also reads the ingested
+# Engineer.name from Neo4j; this is the fallback when no graph data exists.
+name = "LeChristopher Blackwell"
+
+# How the agent is allowed to refer to the engineer. Leave empty to disable the
+# strict naming rules entirely.
+preferred_names = ["Le", "LeChristopher"]
+
+# Forms the agent must never use (abbreviations, etc.).
+forbidden_names = ["Christopher", "Chris"]
+
+# GitHub account that owns the indexed repositories (used for file links).
+github_owner = "codeblackwell"
+
+# Canonical public domain — used for sitemap and canonical URLs.
+# The DOMAIN env var (also used by Caddy) overrides this when set.
+domain = "prove.codeblackwell.ai"

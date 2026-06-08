@@ -7,16 +7,17 @@ canvas toggle, scroll behavior, rate limiting UI, and skill pages.
 
 import pytest
 from tests.e2e.conftest import (
-    ALL_MOBILE_DEVICES, PHONE_DEVICES, IOS_DEVICES, CROSS_BROWSER_DEVICES,
-    IPHONE_15, IPHONE_15_PRO_MAX, IPHONE_SE, PIXEL_7, GALAXY_S23,
-    GALAXY_FOLD, FIREFOX_MOBILE, DESKTOP_CHROME,
-    make_page, device_id, BASE_URL,
+    BASE_URL,
+    CROSS_BROWSER_DEVICES,
+    PHONE_DEVICES,
+    device_id,
+    make_page,
 )
-
 
 # ---------------------------------------------------------------------------
 # Chat form
 # ---------------------------------------------------------------------------
+
 
 class TestChatForm:
     """Chat input, submission, and message rendering on mobile."""
@@ -99,9 +100,7 @@ class TestChatForm:
             page.locator("#chat-input").fill("Hello")
             page.evaluate("document.getElementById('chat-form').requestSubmit()")
             page.wait_for_timeout(200)
-            disabled = page.evaluate(
-                "document.getElementById('chat-input').disabled"
-            )
+            disabled = page.evaluate("document.getElementById('chat-input').disabled")
             assert disabled, "Input should be disabled during request"
         finally:
             page.close()
@@ -127,6 +126,7 @@ class TestChatForm:
 # ---------------------------------------------------------------------------
 # Starter questions
 # ---------------------------------------------------------------------------
+
 
 class TestStarterQuestions:
     """Starter question buttons and their behavior."""
@@ -184,6 +184,7 @@ class TestStarterQuestions:
 # Hero fade animation
 # ---------------------------------------------------------------------------
 
+
 class TestHeroFade:
     """Hero should fade away on first question, giving chat more room."""
 
@@ -207,9 +208,7 @@ class TestHeroFade:
             page.locator("#chat-input").fill("Hello")
             page.evaluate("document.getElementById('chat-form').requestSubmit()")
             page.wait_for_timeout(500)
-            has_class = page.evaluate(
-                "document.body.classList.contains('hero-faded')"
-            )
+            has_class = page.evaluate("document.body.classList.contains('hero-faded')")
             assert has_class, "Body should have hero-faded class after first question"
         finally:
             page.close()
@@ -236,6 +235,7 @@ class TestHeroFade:
 # ---------------------------------------------------------------------------
 # JD Modal
 # ---------------------------------------------------------------------------
+
 
 class TestJDModal:
     """Job description analysis modal on mobile."""
@@ -312,8 +312,9 @@ class TestJDModal:
                     viewportH: window.innerHeight,
                 };
             }""")
-            assert result["right"] <= result["viewportW"] + 5, \
+            assert result["right"] <= result["viewportW"] + 5, (
                 f"Modal overflows right: {result['right']} > {result['viewportW']}"
+            )
             # Bottom may scroll, but check it's not wildly off
         finally:
             page.close()
@@ -325,9 +326,7 @@ class TestJDModal:
         try:
             page.locator("#jd-btn").click()
             page.wait_for_timeout(500)
-            disabled = page.evaluate(
-                "document.getElementById('jd-analyze').disabled"
-            )
+            disabled = page.evaluate("document.getElementById('jd-analyze').disabled")
             assert disabled, "Analyze button should be disabled without input"
         finally:
             page.close()
@@ -340,9 +339,7 @@ class TestJDModal:
             page.locator("#jd-btn").click()
             page.wait_for_timeout(500)
             page.locator("#jd-text").fill("Senior Python developer needed...")
-            disabled = page.evaluate(
-                "document.getElementById('jd-analyze').disabled"
-            )
+            disabled = page.evaluate("document.getElementById('jd-analyze').disabled")
             assert not disabled, "Analyze button should be enabled after text input"
         finally:
             page.close()
@@ -368,6 +365,7 @@ class TestJDModal:
 # Canvas toggle
 # ---------------------------------------------------------------------------
 
+
 class TestCanvasToggle:
     """Background canvas view toggle."""
 
@@ -387,9 +385,7 @@ class TestCanvasToggle:
         try:
             page.locator("#canvas-toggle").click()
             page.wait_for_timeout(300)
-            has_class = page.evaluate(
-                "document.body.classList.contains('canvas-mode')"
-            )
+            has_class = page.evaluate("document.body.classList.contains('canvas-mode')")
             assert has_class, "Body should have canvas-mode class"
         finally:
             page.close()
@@ -403,9 +399,7 @@ class TestCanvasToggle:
             page.wait_for_timeout(300)
             page.locator("#canvas-toggle").click()
             page.wait_for_timeout(300)
-            has_class = page.evaluate(
-                "document.body.classList.contains('canvas-mode')"
-            )
+            has_class = page.evaluate("document.body.classList.contains('canvas-mode')")
             assert not has_class, "canvas-mode should toggle off"
         finally:
             page.close()
@@ -435,6 +429,7 @@ class TestCanvasToggle:
 # Messages scroll
 # ---------------------------------------------------------------------------
 
+
 class TestMessageScroll:
     """Message container scrolling behavior."""
 
@@ -445,8 +440,9 @@ class TestMessageScroll:
             overflow = page.evaluate("""
                 window.getComputedStyle(document.getElementById('messages')).overflowY
             """)
-            assert overflow in ("auto", "scroll"), \
+            assert overflow in ("auto", "scroll"), (
                 f"Messages should be scrollable, got overflow-y: {overflow}"
+            )
         finally:
             page.close()
             ctx.close()
@@ -456,19 +452,22 @@ class TestMessageScroll:
 # Skill detail page
 # ---------------------------------------------------------------------------
 
+
 class TestSkillPage:
     """Skill detail page rendering on mobile."""
 
     @pytest.mark.parametrize("device", CROSS_BROWSER_DEVICES, ids=device_id)
     def test_skill_404_renders(self, device):
         """Non-existent skill should show 404 message, not crash."""
-        ctx, page = make_page(device, f"{BASE_URL}/skills/nonexistent-skill-xyz",
-                              wait_for_load=False)
+        ctx, page = make_page(
+            device, f"{BASE_URL}/skills/nonexistent-skill-xyz", wait_for_load=False
+        )
         try:
             page.wait_for_load_state("domcontentloaded")
             content = page.text_content("body")
-            assert "not found" in content.lower() or "Not Found" in content, \
+            assert "not found" in content.lower() or "Not Found" in content, (
                 "Should show not-found message"
+            )
         finally:
             page.close()
             ctx.close()
@@ -476,8 +475,7 @@ class TestSkillPage:
     @pytest.mark.parametrize("device", PHONE_DEVICES, ids=device_id)
     def test_skill_page_readable_on_mobile(self, device):
         """Skill page should have readable layout on mobile."""
-        ctx, page = make_page(device, f"{BASE_URL}/skills/python",
-                              wait_for_load=False)
+        ctx, page = make_page(device, f"{BASE_URL}/skills/python", wait_for_load=False)
         try:
             page.wait_for_load_state("domcontentloaded")
             # Check it loaded something (either skill data or 404)
@@ -496,6 +494,7 @@ class TestSkillPage:
 # ---------------------------------------------------------------------------
 # Fingerprint generation
 # ---------------------------------------------------------------------------
+
 
 class TestFingerprint:
     """Browser fingerprint generation for rate limiting."""
@@ -518,6 +517,7 @@ class TestFingerprint:
 # ---------------------------------------------------------------------------
 # SEO meta tags
 # ---------------------------------------------------------------------------
+
 
 class TestSEO:
     """SEO meta tags should be present on mobile."""

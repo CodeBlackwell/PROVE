@@ -52,7 +52,9 @@ def match_requirement(requirement: str, neo4j_client: Neo4jClient, embed_client)
         # Enrich with proficiency from skill nodes
         _enrich_with_proficiency(entry, r["props"].get("name", ""), neo4j_client)
         evidence.append(entry)
-    return MatchResult(requirement=requirement, confidence=_compute_confidence(evidence), evidence=evidence)
+    return MatchResult(
+        requirement=requirement, confidence=_compute_confidence(evidence), evidence=evidence
+    )
 
 
 def _enrich_with_proficiency(entry: dict, snippet_name: str, neo4j_client: Neo4jClient):

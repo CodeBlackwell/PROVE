@@ -1,11 +1,10 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from tree_sitter import Language, Parser
-
-import tree_sitter_python as tsp
 import tree_sitter_javascript as tsj
+import tree_sitter_python as tsp
 import tree_sitter_typescript as tst
+from tree_sitter import Language, Parser
 
 
 @dataclass
@@ -46,20 +45,24 @@ def _walk_nodes(node, types):
         yield from _walk_nodes(child, types)
 
 
-def _parse_with_treesitter(source: bytes, lang: Language, suffix: str, file_path: str) -> list[CodeChunk]:
+def _parse_with_treesitter(
+    source: bytes, lang: Language, suffix: str, file_path: str
+) -> list[CodeChunk]:
     parser = Parser(lang)
     tree = parser.parse(source)
     node_types = EXTRACTABLE_TYPES[suffix]
     chunks = []
     for node in _walk_nodes(tree.root_node, node_types):
-        chunks.append(CodeChunk(
-            content=node.text.decode(),
-            file_path=file_path,
-            start_line=node.start_point[0] + 1,
-            end_line=node.end_point[0] + 1,
-            language=suffix.lstrip("."),
-            name=_extract_name(node),
-        ))
+        chunks.append(
+            CodeChunk(
+                content=node.text.decode(),
+                file_path=file_path,
+                start_line=node.start_point[0] + 1,
+                end_line=node.end_point[0] + 1,
+                language=suffix.lstrip("."),
+                name=_extract_name(node),
+            )
+        )
     return chunks
 
 
@@ -69,14 +72,16 @@ def _fallback_parse(text: str, file_path: str, suffix: str) -> list[CodeChunk]:
     line = 1
     for block in blocks:
         line_count = block.count("\n") + 1
-        chunks.append(CodeChunk(
-            content=block,
-            file_path=file_path,
-            start_line=line,
-            end_line=line + line_count - 1,
-            language=suffix.lstrip(".") or "unknown",
-            name=f"block_{line}",
-        ))
+        chunks.append(
+            CodeChunk(
+                content=block,
+                file_path=file_path,
+                start_line=line,
+                end_line=line + line_count - 1,
+                language=suffix.lstrip(".") or "unknown",
+                name=f"block_{line}",
+            )
+        )
         line += line_count + 1
     return chunks
 
@@ -84,6 +89,7 @@ def _fallback_parse(text: str, file_path: str, suffix: str) -> list[CodeChunk]:
 def _parse_notebook(file_path: str | Path) -> list[CodeChunk]:
     """Extract code cells from Jupyter notebooks as parseable Python chunks."""
     import json
+
     path = Path(file_path)
     try:
         nb = json.loads(path.read_text(encoding="utf-8", errors="replace"))
@@ -118,7 +124,10 @@ def _parse_notebook(file_path: str | Path) -> list[CodeChunk]:
 
     # Parse with tree-sitter to extract functions/classes
     chunks = _parse_with_treesitter(
-        combined.encode(), LANGUAGES[".py"], ".py", py_path,
+        combined.encode(),
+        LANGUAGES[".py"],
+        ".py",
+        py_path,
     )
 
     # If tree-sitter found nothing (all top-level code), fall back to per-cell chunks
@@ -126,14 +135,16 @@ def _parse_notebook(file_path: str | Path) -> list[CodeChunk]:
         for start, cell_idx, source, line_count in cell_offsets:
             if len(source.strip()) < 20:
                 continue
-            chunks.append(CodeChunk(
-                content=source,
-                file_path=py_path,
-                start_line=start,
-                end_line=start + line_count - 1,
-                language="py",
-                name=f"cell_{cell_idx}",
-            ))
+            chunks.append(
+                CodeChunk(
+                    content=source,
+                    file_path=py_path,
+                    start_line=start,
+                    end_line=start + line_count - 1,
+                    language="py",
+                    name=f"cell_{cell_idx}",
+                )
+            )
 
     return chunks
 

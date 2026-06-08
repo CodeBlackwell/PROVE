@@ -1,6 +1,12 @@
 TAXONOMY = {
     "AI & Machine Learning": {
-        "LLM & Generative AI": ["LLM Integration", "Prompt Engineering", "Fine-Tuning", "Embeddings", "Model Serving"],
+        "LLM & Generative AI": [
+            "LLM Integration",
+            "Prompt Engineering",
+            "Fine-Tuning",
+            "Embeddings",
+            "Model Serving",
+        ],
         "Agentic AI": ["Multi-Agent Orchestration", "Agentic AI", "RAG", "MCP Protocol"],
         "Classical ML": ["scikit-learn", "PyTorch", "TensorFlow", "MLOps"],
         "NLP & Vision": ["NLP", "Computer Vision"],
@@ -8,7 +14,13 @@ TAXONOMY = {
     "Backend Engineering": {
         "Web Frameworks": ["FastAPI", "Django", "Flask", "Express.js"],
         "API & Protocols": ["REST API Design", "GraphQL", "gRPC", "WebSocket"],
-        "Architecture Patterns": ["Async Programming", "Microservices", "Event-Driven Architecture", "Distributed Systems", "Message Queues"],
+        "Architecture Patterns": [
+            "Async Programming",
+            "Microservices",
+            "Event-Driven Architecture",
+            "Distributed Systems",
+            "Message Queues",
+        ],
     },
     "Frontend Engineering": {
         "Frameworks": ["React", "Next.js", "Vue.js"],
@@ -41,13 +53,24 @@ TAXONOMY = {
         "Search & Vector": ["Vector Databases", "Elasticsearch"],
     },
     "Software Engineering": {
-        "Quality & Design": ["Testing", "Design Patterns", "API Design", "Performance Optimization"],
+        "Quality & Design": [
+            "Testing",
+            "Design Patterns",
+            "API Design",
+            "Performance Optimization",
+        ],
     },
     "Emerging Tech": {
         "Real-Time & Streaming": ["Streaming / SSE", "Real-Time Systems"],
     },
     "Domain-Specific": {
-        "Specialized": ["Geospatial", "Financial / Trading", "PDF Processing", "Web Scraping", "Audio / Signal Processing"],
+        "Specialized": [
+            "Geospatial",
+            "Financial / Trading",
+            "PDF Processing",
+            "Web Scraping",
+            "Audio / Signal Processing",
+        ],
     },
 }
 
@@ -61,9 +84,7 @@ SKILL_HIERARCHY = {
 }
 
 CATEGORY_TO_DOMAIN: dict[str, str] = {
-    cat: domain
-    for domain, categories in TAXONOMY.items()
-    for cat in categories
+    cat: domain for domain, categories in TAXONOMY.items() for cat in categories
 }
 
 # Maps resume keywords (orphan CLAIMS nodes) to taxonomy.

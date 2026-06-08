@@ -51,7 +51,9 @@ def retag():
                     "MERGE (sk:Skill {name: $skill}) WITH sk "
                     "MATCH (cs:CodeSnippet {name: $name, file_path: $fp}) "
                     "MERGE (cs)-[:DEMONSTRATES]->(sk)",
-                    skill=skill, name=row["name"], fp=row["fp"],
+                    skill=skill,
+                    name=row["name"],
+                    fp=row["fp"],
                 )
                 demo_count += 1
 
@@ -62,13 +64,15 @@ def retag():
                     "MATCH (r:Repository {name: $repo}) "
                     "MERGE (sk:Skill {name: $skill}) "
                     "MERGE (r)-[:USES_SKILL]->(sk)",
-                    repo=repo, skill=skill,
+                    repo=repo,
+                    skill=skill,
                 )
                 s.run(
                     "MATCH (r:Repository {name: $repo}) "
                     "MERGE (t:Technology {name: $skill}) "
                     "MERGE (r)-[:USES]->(t)",
-                    repo=repo, skill=skill,
+                    repo=repo,
+                    skill=skill,
                 )
             logger.info("retag.repo_skills", repo=repo, skill_count=len(skills))
 
@@ -79,11 +83,15 @@ def retag():
                 s.run(
                     "MATCH (e:Engineer {name: $eng}), (r:Repository {name: $repo}) "
                     "MERGE (e)-[:OWNS]->(r)",
-                    eng=eng["name"], repo=repo,
+                    eng=eng["name"],
+                    repo=repo,
                 )
 
-        logger.info("retag.done", demonstrates_edges=demo_count,
-                     uses_skill_edges=sum(len(v) for v in repo_skills.values()))
+        logger.info(
+            "retag.done",
+            demonstrates_edges=demo_count,
+            uses_skill_edges=sum(len(v) for v in repo_skills.values()),
+        )
 
     neo4j.close()
 

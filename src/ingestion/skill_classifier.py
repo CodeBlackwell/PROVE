@@ -34,12 +34,16 @@ def _split_with_overlap(content: str) -> list[str]:
 
 
 def classify_chunks(chunks, chat_client) -> list[set[str]]:
-    batches = [chunks[i:i + BATCH_SIZE] for i in range(0, len(chunks), BATCH_SIZE)]
+    batches = [chunks[i : i + BATCH_SIZE] for i in range(0, len(chunks), BATCH_SIZE)]
     results = [None] * len(batches)
-    concurrency = CONCURRENCY_ANTHROPIC if isinstance(chat_client, ClaudeChatClient) else CONCURRENCY_NIM
+    concurrency = (
+        CONCURRENCY_ANTHROPIC if isinstance(chat_client, ClaudeChatClient) else CONCURRENCY_NIM
+    )
 
     with ThreadPoolExecutor(max_workers=concurrency) as pool:
-        futures = {pool.submit(_classify_batch_full, b, chat_client): idx for idx, b in enumerate(batches)}
+        futures = {
+            pool.submit(_classify_batch_full, b, chat_client): idx for idx, b in enumerate(batches)
+        }
         for future in as_completed(futures):
             results[futures[future]] = future.result()
 
@@ -54,11 +58,11 @@ def _classify_batch_full(chunks, chat_client) -> list[set[str]]:
             sections.append((i, section))
 
     per_chunk_skills = [set() for _ in chunks]
-    section_batches = [sections[j:j + BATCH_SIZE] for j in range(0, len(sections), BATCH_SIZE)]
+    section_batches = [sections[j : j + BATCH_SIZE] for j in range(0, len(sections), BATCH_SIZE)]
 
     for sbatch in section_batches:
         batch_skills = _call_classifier(sbatch, chunks, chat_client)
-        for (chunk_idx, _), skills in zip(sbatch, batch_skills):
+        for (chunk_idx, _), skills in zip(sbatch, batch_skills, strict=False):
             per_chunk_skills[chunk_idx] |= skills
 
     return per_chunk_skills
@@ -72,13 +76,15 @@ def _call_classifier(sections, chunks, chat_client) -> list[set[str]]:
     user_prompt = (
         f"Skills list: {json.dumps(ALL_SKILLS)}\n\n"
         f"Snippets:\n{snippet_text}\n\n"
-        "Return JSON: {{\"0\": [\"Skill1\", ...], \"1\": [...], ...}}"
+        'Return JSON: {{"0": ["Skill1", ...], "1": [...], ...}}'
     )
     try:
-        response = chat_client.chat([
-            {"role": "system", "content": CLASSIFY_SYSTEM},
-            {"role": "user", "content": user_prompt},
-        ])
+        response = chat_client.chat(
+            [
+                {"role": "system", "content": CLASSIFY_SYSTEM},
+                {"role": "user", "content": user_prompt},
+            ]
+        )
         raw = response.choices[0].message.content
         if "```" in raw:
             raw = raw.split("```")[1]

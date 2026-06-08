@@ -58,11 +58,13 @@ VENDOR_FILE_ROW = {
 # Tests
 # ---------------------------------------------------------------------------
 
+
 class TestAssetPathFilter:
     """Verify _SKIP_ASSET_PATHS is present in the right Cypher queries."""
 
     def test_filter_string_excludes_static(self):
         from src.app import _SKIP_ASSET_PATHS
+
         assert "'static'" in _SKIP_ASSET_PATHS
         assert "'public'" in _SKIP_ASSET_PATHS
         assert "'vendor'" in _SKIP_ASSET_PATHS
@@ -79,16 +81,22 @@ class TestRepoSkillSnippetsEndpoint:
         neo4j, session = _mock_neo4j()
         session.run.return_value.data.return_value = [
             {
-                "branch": "main", "private": False,
-                "path": "src/qa/agent.py", "snippet_name": "answer_stream",
-                "context": "Streams answers via SSE", "content": "def answer_stream(): pass",
-                "start_line": 10, "end_line": 25, "lang": "py",
+                "branch": "main",
+                "private": False,
+                "path": "src/qa/agent.py",
+                "snippet_name": "answer_stream",
+                "context": "Streams answers via SSE",
+                "content": "def answer_stream(): pass",
+                "start_line": 10,
+                "end_line": 25,
+                "lang": "py",
             },
         ]
         clients, mock_db = _patch_app(neo4j, session)
 
         with patch.dict("src.app.clients", clients):
             from src.app import _repo_skill_snippets
+
             _repo_skill_snippets.cache_clear()
             result = _repo_skill_snippets("PROVE", "LLM Integration")
 
@@ -102,16 +110,22 @@ class TestRepoSkillSnippetsEndpoint:
         neo4j, session = _mock_neo4j()
         session.run.return_value.data.return_value = [
             {
-                "branch": "main", "private": True,
-                "path": "src/core/secret.py", "snippet_name": "decrypt",
-                "context": "Decrypts tokens", "content": "def decrypt(): secret",
-                "start_line": 1, "end_line": 5, "lang": "py",
+                "branch": "main",
+                "private": True,
+                "path": "src/core/secret.py",
+                "snippet_name": "decrypt",
+                "context": "Decrypts tokens",
+                "content": "def decrypt(): secret",
+                "start_line": 1,
+                "end_line": 5,
+                "lang": "py",
             },
         ]
         clients, _ = _patch_app(neo4j, session)
 
         with patch.dict("src.app.clients", clients):
             from src.app import _repo_skill_snippets
+
             _repo_skill_snippets.cache_clear()
             result = _repo_skill_snippets("gateway", "Security")
 
@@ -122,16 +136,22 @@ class TestRepoSkillSnippetsEndpoint:
         neo4j, session = _mock_neo4j()
         session.run.return_value.data.return_value = [
             {
-                "branch": "main", "private": False,
-                "path": "src/app.py", "snippet_name": "main",
-                "context": "Entry point", "content": "app = FastAPI()",
-                "start_line": 1, "end_line": 1, "lang": "py",
+                "branch": "main",
+                "private": False,
+                "path": "src/app.py",
+                "snippet_name": "main",
+                "context": "Entry point",
+                "content": "app = FastAPI()",
+                "start_line": 1,
+                "end_line": 1,
+                "lang": "py",
             },
         ]
         clients, _ = _patch_app(neo4j, session)
 
         with patch.dict("src.app.clients", clients):
             from src.app import _repo_skill_snippets
+
             _repo_skill_snippets.cache_clear()
             _repo_skill_snippets("CacheTest", "Python")
             _repo_skill_snippets("CacheTest", "Python")
@@ -145,6 +165,7 @@ class TestRepoSkillSnippetsEndpoint:
 
         with patch.dict("src.app.clients", clients):
             from src.app import _repo_skill_snippets
+
             _repo_skill_snippets.cache_clear()
             _repo_skill_snippets("PROVE", "Testing")
 

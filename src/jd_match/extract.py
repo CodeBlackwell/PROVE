@@ -15,12 +15,14 @@ def extract_text(filename: str, content: bytes) -> str:
         raise ValueError("Unsupported file type. Use PDF, DOCX, MD, or TXT.")
     if ext == ".pdf":
         from pypdf import PdfReader
+
         reader = PdfReader(io.BytesIO(content))
         if len(reader.pages) > _MAX_PDF_PAGES:
             raise ValueError(f"PDF too long ({len(reader.pages)} pages, max {_MAX_PDF_PAGES})")
         return "\n".join(page.extract_text() or "" for page in reader.pages)
     elif ext == ".docx":
         from docx import Document
+
         doc = Document(io.BytesIO(content))
         return "\n".join(p.text for p in doc.paragraphs)
     else:  # .md, .txt, .text

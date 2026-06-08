@@ -11,9 +11,11 @@ EXTRACT_PROMPT = (
 
 
 def parse_requirements(jd_text: str, chat_client) -> list[str]:
-    response = chat_client.chat([
-        {"role": "user", "content": EXTRACT_PROMPT.format(jd_text=jd_text)},
-    ])
+    response = chat_client.chat(
+        [
+            {"role": "user", "content": EXTRACT_PROMPT.format(jd_text=jd_text)},
+        ]
+    )
     raw = response.choices[0].message.content.strip()
     # Strip markdown fences if present
     if raw.startswith("```"):

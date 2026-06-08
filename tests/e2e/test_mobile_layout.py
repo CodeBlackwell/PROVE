@@ -7,15 +7,22 @@ touch targets, font sizes, and visual rendering across all mobile devices.
 
 import pytest
 from tests.e2e.conftest import (
-    ALL_MOBILE_DEVICES, PHONE_DEVICES, IOS_DEVICES, CROSS_BROWSER_DEVICES,
-    IPHONE_15, IPHONE_SE, GALAXY_FOLD, IPAD_MINI, DESKTOP_CHROME,
-    make_page, device_id, BASE_URL,
+    ALL_MOBILE_DEVICES,
+    BASE_URL,
+    CROSS_BROWSER_DEVICES,
+    DESKTOP_CHROME,
+    GALAXY_FOLD,
+    IOS_DEVICES,
+    IPHONE_SE,
+    PHONE_DEVICES,
+    device_id,
+    make_page,
 )
-
 
 # ---------------------------------------------------------------------------
 # Page load & loading screen
 # ---------------------------------------------------------------------------
+
 
 class TestPageLoad:
     """Verify the page loads and the loading screen transitions correctly."""
@@ -74,6 +81,7 @@ class TestPageLoad:
 # Viewport & layout
 # ---------------------------------------------------------------------------
 
+
 class TestViewportLayout:
     """Verify layout adapts correctly to mobile viewports."""
 
@@ -109,7 +117,9 @@ class TestViewportLayout:
             display = page.evaluate(
                 "window.getComputedStyle(document.getElementById('graph-panel')).display"
             )
-            assert display == "none", f"Graph panel should be hidden on {device['name']}, got display={display}"
+            assert display == "none", (
+                f"Graph panel should be hidden on {device['name']}, got display={display}"
+            )
         finally:
             page.close()
             ctx.close()
@@ -143,9 +153,7 @@ class TestViewportLayout:
         """Body should fill the viewport without extra scrollbar."""
         ctx, page = make_page(device, BASE_URL)
         try:
-            overflow = page.evaluate(
-                "window.getComputedStyle(document.body).overflow"
-            )
+            overflow = page.evaluate("window.getComputedStyle(document.body).overflow")
             assert overflow == "hidden", f"Body overflow should be hidden, got {overflow}"
         finally:
             page.close()
@@ -162,8 +170,9 @@ class TestViewportLayout:
             assert chat_box is not None, "Chat panel should be visible"
             # Chat panel should not extend below viewport
             viewport_h = device["viewport"]["height"]
-            assert chat_box["y"] + chat_box["height"] <= viewport_h + 50, \
+            assert chat_box["y"] + chat_box["height"] <= viewport_h + 50, (
                 f"Chat extends beyond viewport on {device['name']}"
+            )
         finally:
             page.close()
             ctx.close()
@@ -172,6 +181,7 @@ class TestViewportLayout:
 # ---------------------------------------------------------------------------
 # Touch targets
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("shared_page", PHONE_DEVICES, ids=device_id, indirect=True)
 class TestTouchTargets:
@@ -182,18 +192,22 @@ class TestTouchTargets:
     def test_canvas_toggle_touch_target(self, shared_page):
         box = shared_page.locator("#canvas-toggle").bounding_box()
         assert box is not None, "Canvas toggle should be visible"
-        assert box["width"] >= self.MIN_TOUCH_SIZE, \
+        assert box["width"] >= self.MIN_TOUCH_SIZE, (
             f"Canvas toggle width {box['width']}px < {self.MIN_TOUCH_SIZE}px"
-        assert box["height"] >= self.MIN_TOUCH_SIZE, \
+        )
+        assert box["height"] >= self.MIN_TOUCH_SIZE, (
             f"Canvas toggle height {box['height']}px < {self.MIN_TOUCH_SIZE}px"
+        )
 
     def test_jd_button_touch_target(self, shared_page):
         box = shared_page.locator("#jd-btn").bounding_box()
         assert box is not None, "JD button should be visible"
-        assert box["width"] >= self.MIN_TOUCH_SIZE, \
+        assert box["width"] >= self.MIN_TOUCH_SIZE, (
             f"JD button width {box['width']}px < {self.MIN_TOUCH_SIZE}px"
-        assert box["height"] >= self.MIN_TOUCH_SIZE, \
+        )
+        assert box["height"] >= self.MIN_TOUCH_SIZE, (
             f"JD button height {box['height']}px < {self.MIN_TOUCH_SIZE}px"
+        )
 
     def test_starter_buttons_touch_target(self, shared_page):
         """Starter question buttons should be large enough to tap."""
@@ -203,13 +217,15 @@ class TestTouchTargets:
         for i in range(count):
             box = buttons.nth(i).bounding_box()
             assert box is not None, f"Starter button {i} should be visible"
-            assert box["height"] >= 36, \
+            assert box["height"] >= 36, (
                 f"Starter button {i} height {box['height']}px is too small for touch"
+            )
 
 
 # ---------------------------------------------------------------------------
 # Font sizes (iOS zoom prevention)
 # ---------------------------------------------------------------------------
+
 
 class TestFontSizes:
     """iOS Safari zooms the page when input font-size < 16px."""
@@ -224,8 +240,9 @@ class TestFontSizes:
                     document.getElementById('chat-input')
                 ).fontSize)
             """)
-            assert font_size >= 16, \
+            assert font_size >= 16, (
                 f"Chat input font-size is {font_size}px — iOS will zoom (need >= 16px)"
+            )
         finally:
             page.close()
             ctx.close()
@@ -244,8 +261,9 @@ class TestFontSizes:
                     document.getElementById('jd-text')
                 ).fontSize)
             """)
-            assert font_size >= 16, \
+            assert font_size >= 16, (
                 f"JD textarea font-size is {font_size}px — iOS will zoom (need >= 16px)"
+            )
         finally:
             page.close()
             ctx.close()
@@ -254,6 +272,7 @@ class TestFontSizes:
 # ---------------------------------------------------------------------------
 # CSS feature rendering
 # ---------------------------------------------------------------------------
+
 
 class TestCSSRendering:
     """Verify CSS features render correctly across mobile browsers."""
@@ -271,7 +290,6 @@ class TestCSSRendering:
                     wbf: style.webkitBackdropFilter || '',
                 };
             }""")
-            has_filter = bool(result["bf"]) or bool(result["wbf"])
             # Note: some engines report "none" when not supported
             bf_val = result["bf"] or result["wbf"]
             if bf_val and bf_val != "none":
@@ -309,8 +327,9 @@ class TestCSSRendering:
                 bg_image = page.evaluate("""
                     window.getComputedStyle(document.body).backgroundImage
                 """)
-                assert bg_image != "none", \
+                assert bg_image != "none", (
                     "background-attachment:fixed with no image on iOS = blank page"
+                )
         finally:
             page.close()
             ctx.close()
@@ -323,10 +342,12 @@ class TestCSSRendering:
             content = page.evaluate("""
                 document.querySelector('meta[name="viewport"]')?.content || ''
             """)
-            assert "width=device-width" in content, \
+            assert "width=device-width" in content, (
                 f"Missing width=device-width in viewport meta: {content}"
-            assert "initial-scale=1" in content, \
+            )
+            assert "initial-scale=1" in content, (
                 f"Missing initial-scale=1 in viewport meta: {content}"
+            )
         finally:
             page.close()
             ctx.close()
@@ -340,8 +361,9 @@ class TestCSSRendering:
                 window.getComputedStyle(document.getElementById('chat-panel')).backgroundColor
             """)
             # Should not be fully transparent
-            assert bg != "rgba(0, 0, 0, 0)" and bg != "transparent", \
+            assert bg != "rgba(0, 0, 0, 0)" and bg != "transparent", (
                 f"Chat panel has no background on {device['name']}: {bg}"
+            )
         finally:
             page.close()
             ctx.close()
@@ -350,6 +372,7 @@ class TestCSSRendering:
 # ---------------------------------------------------------------------------
 # Viewport height (dvh) handling
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("shared_page", PHONE_DEVICES, ids=device_id, indirect=True)
 class TestViewportHeight:
@@ -366,13 +389,15 @@ class TestViewportHeight:
             };
         }""")
         ratio = result["mainHeight"] / result["viewportHeight"]
-        assert ratio >= 0.85, \
+        assert ratio >= 0.85, (
             f"Main height ({result['mainHeight']}px) is only {ratio:.0%} of viewport ({result['viewportHeight']}px)"
+        )
 
 
 # ---------------------------------------------------------------------------
 # Accessibility basics
 # ---------------------------------------------------------------------------
+
 
 class TestAccessibility:
     """Basic accessibility checks on mobile."""

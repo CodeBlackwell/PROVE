@@ -9,12 +9,45 @@ from src.ingestion.git_dates import get_chunk_dates
 from src.ingestion.skill_classifier import classify_chunks
 from src.ingestion.skill_taxonomy import ALL_SKILLS
 
-SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", ".env", "dist", "build", ".next", "portfolio"}
-CODE_EXTENSIONS = {".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".go", ".rs", ".rb", ".cpp", ".c", ".h", ".ipynb"}
+SKIP_DIRS = {
+    ".git",
+    "node_modules",
+    "__pycache__",
+    ".venv",
+    ".env",
+    "dist",
+    "build",
+    ".next",
+    "portfolio",
+}
+CODE_EXTENSIONS = {
+    ".py",
+    ".js",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".java",
+    ".go",
+    ".rs",
+    ".rb",
+    ".cpp",
+    ".c",
+    ".h",
+    ".ipynb",
+}
 LANG_LABELS = {
-    "py": "Python", "js": "JavaScript", "ts": "TypeScript", "tsx": "TypeScript",
-    "jsx": "JavaScript", "java": "Java", "go": "Go", "rs": "Rust",
-    "rb": "Ruby", "cpp": "C++", "c": "C", "h": "C/C++",
+    "py": "Python",
+    "js": "JavaScript",
+    "ts": "TypeScript",
+    "tsx": "TypeScript",
+    "jsx": "JavaScript",
+    "java": "Java",
+    "go": "Go",
+    "rs": "Rust",
+    "rb": "Ruby",
+    "cpp": "C++",
+    "c": "C",
+    "h": "C/C++",
 }
 
 
@@ -35,7 +68,10 @@ def _detect_default_branch(repo_path: Path) -> str:
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=repo_path, capture_output=True, text=True, timeout=5,
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         branch = result.stdout.strip()
         if branch and branch != "HEAD":
@@ -85,19 +121,44 @@ def _delete_orphaned_snippets(session, rel_path: str, orphaned_names: set):
     if not orphaned_names:
         return
     session.run(
-        "MATCH (cs:CodeSnippet {file_path: $fp}) "
-        "WHERE cs.name IN $names "
-        "DETACH DELETE cs",
-        fp=rel_path, names=list(orphaned_names),
+        "MATCH (cs:CodeSnippet {file_path: $fp}) WHERE cs.name IN $names DETACH DELETE cs",
+        fp=rel_path,
+        names=list(orphaned_names),
     )
-    logger.info("graph.orphan_cleanup", file=rel_path, removed=len(orphaned_names),
-                names=list(orphaned_names))
+    logger.info(
+        "graph.orphan_cleanup",
+        file=rel_path,
+        removed=len(orphaned_names),
+        names=list(orphaned_names),
+    )
 
 
-def build_graph(repo_path, neo4j_client, embed_client, chat_client):
+def _cost_rows(repo, file_path, chunks, phase, model, popped):
+    """Allocate a phase's batch cost across its snippets, weighted by content size."""
+    total_chars = sum(len(c.content) for c in chunks) or 1
+    rows = []
+    for c in chunks:
+        weight = len(c.content) / total_chars
+        rows.append(
+            (
+                repo,
+                file_path,
+                c.name,
+                phase,
+                model,
+                int(popped["input_tokens"] * weight),
+                int(popped["output_tokens"] * weight),
+                round(popped["cost_usd"] * weight, 8),
+            )
+        )
+    return rows
+
+
+def build_graph(repo_path, neo4j_client, embed_client, chat_client, db=None):
     repo_path = Path(repo_path)
     repo_name = repo_path.name
     file_count = 0
+    logger.pop_ingest_cost()  # clear residue before per-file accounting
 
     all_files = list(_walk_code_files(repo_path))
     total_files = len(all_files)
@@ -110,10 +171,17 @@ def build_graph(repo_path, neo4j_client, embed_client, chat_client):
     with neo4j_client.driver.session() as session:
         session.run(
             "MERGE (r:Repository {name: $name}) SET r.path = $path, r.default_branch = $branch",
-            name=repo_name, path=str(repo_path), branch=default_branch,
+            name=repo_name,
+            path=str(repo_path),
+            branch=default_branch,
         )
 
-    stats = {"skipped_files": 0, "unchanged_snippets": 0, "changed_snippets": 0, "orphaned_snippets": 0}
+    stats = {
+        "skipped_files": 0,
+        "unchanged_snippets": 0,
+        "changed_snippets": 0,
+        "orphaned_snippets": 0,
+    }
 
     for file_path in all_files:
         rel_path = str(file_path.relative_to(repo_path))
@@ -123,7 +191,8 @@ def build_graph(repo_path, neo4j_client, embed_client, chat_client):
                 "MATCH (r:Repository {name: $repo}) "
                 "MERGE (f:File {path: $path}) "
                 "MERGE (r)-[:CONTAINS]->(f)",
-                repo=repo_name, path=rel_path,
+                repo=repo_name,
+                path=rel_path,
             )
 
             chunks = parse_file(file_path)
@@ -142,17 +211,24 @@ def build_graph(repo_path, neo4j_client, embed_client, chat_client):
             if not changed:
                 file_count += 1
                 stats["skipped_files"] += 1
-                logger.debug("graph.file_skip", file=rel_path, reason="no_changes",
-                              unchanged=len(unchanged))
+                logger.debug(
+                    "graph.file_skip", file=rel_path, reason="no_changes", unchanged=len(unchanged)
+                )
                 continue
 
             stats["changed_snippets"] += len(changed)
-            logger.debug("graph.file_diff", file=rel_path,
-                          changed=len(changed), unchanged=len(unchanged), orphaned=len(orphaned))
+            logger.debug(
+                "graph.file_diff",
+                file=rel_path,
+                changed=len(changed),
+                unchanged=len(unchanged),
+                orphaned=len(orphaned),
+            )
 
         # Only classify and embed the changed chunks
         logger.debug("graph.classify", file=rel_path, chunk_count=len(changed))
         skills_per_chunk = classify_chunks(changed, chat_client)
+        classify_cost = logger.pop_ingest_cost()
 
         # Generate contextual descriptions for changed chunks only
         with neo4j_client.driver.session() as session:
@@ -165,7 +241,7 @@ def build_graph(repo_path, neo4j_client, embed_client, chat_client):
 
         needs_context = [
             (i, c, skills)
-            for i, (c, skills) in enumerate(zip(changed, skills_per_chunk))
+            for i, (c, skills) in enumerate(zip(changed, skills_per_chunk, strict=False))
             if c.name not in ctx_map
         ]
 
@@ -173,26 +249,38 @@ def build_graph(repo_path, neo4j_client, embed_client, chat_client):
 
         if needs_context:
             snippet_dicts = [
-                {"name": c.name, "file_path": rel_path, "content": c.content,
-                 "language": c.language, "repo": repo_name, "skills": list(skills)}
+                {
+                    "name": c.name,
+                    "file_path": rel_path,
+                    "content": c.content,
+                    "language": c.language,
+                    "repo": repo_name,
+                    "skills": list(skills),
+                }
                 for _, c, skills in needs_context
             ]
-            new_contexts = generate_contexts(snippet_dicts, chat_client,
-                                             skills_list=", ".join(ALL_SKILLS))
-            for (i, _, _), ctx in zip(needs_context, new_contexts):
+            new_contexts = generate_contexts(
+                snippet_dicts, chat_client, skills_list=", ".join(ALL_SKILLS)
+            )
+            for (i, _, _), ctx in zip(needs_context, new_contexts, strict=False):
                 contexts[i] = ctx
+        context_cost = logger.pop_ingest_cost()
 
         # Embed only changed chunks
         texts = [
             (ctx + "\n" if ctx else "")
             + build_preamble(c.name, c.language, rel_path, repo_name, list(skills))
-            + "\nCode:\n" + c.content
-            for c, skills, ctx in zip(changed, skills_per_chunk, contexts)
+            + "\nCode:\n"
+            + c.content
+            for c, skills, ctx in zip(changed, skills_per_chunk, contexts, strict=False)
         ]
         embeddings = embed_client.embed(texts)
+        embed_cost = logger.pop_ingest_cost()
 
         with neo4j_client.driver.session() as session:
-            for chunk, embedding, chunk_skills, ctx in zip(changed, embeddings, skills_per_chunk, contexts):
+            for chunk, embedding, chunk_skills, ctx in zip(
+                changed, embeddings, skills_per_chunk, contexts, strict=False
+            ):
                 content_hash = _content_hash(chunk.content)
                 session.run(
                     "MATCH (f:File {path: $file_path}) "
@@ -202,24 +290,46 @@ def build_graph(repo_path, neo4j_client, embed_client, chat_client):
                     f"    cs.{embed_prop} = $embedding, cs.context = $ctx, "
                     "    cs.content_hash = $hash "
                     "MERGE (f)-[:CONTAINS]->(cs)",
-                    file_path=rel_path, name=chunk.name,
-                    content=chunk.content, start=chunk.start_line,
-                    end=chunk.end_line, lang=chunk.language,
-                    embedding=embedding, ctx=ctx, hash=content_hash,
+                    file_path=rel_path,
+                    name=chunk.name,
+                    content=chunk.content,
+                    start=chunk.start_line,
+                    end=chunk.end_line,
+                    lang=chunk.language,
+                    embedding=embedding,
+                    ctx=ctx,
+                    hash=content_hash,
                 )
                 _link_chunk_skills(session, chunk, rel_path, chunk_skills, repo_path)
 
+        if db is not None:
+            chat_model = getattr(chat_client, "model", "?")
+            embed_model = getattr(embed_client, "model", "voyage-3.5")
+            db.insert_ingest_costs(
+                _cost_rows(repo_name, rel_path, changed, "classify", chat_model, classify_cost)
+                + _cost_rows(repo_name, rel_path, changed, "context", chat_model, context_cost)
+                + _cost_rows(repo_name, rel_path, changed, "embed", embed_model, embed_cost)
+            )
+
         file_count += 1
         pct = int(file_count / total_files * 100) if total_files else 0
-        logger.info("graph.progress", repo=repo_name,
-                    files_processed=file_count, total_files=total_files,
-                    percent=pct)
+        logger.info(
+            "graph.progress",
+            repo=repo_name,
+            files_processed=file_count,
+            total_files=total_files,
+            percent=pct,
+        )
 
-    logger.info("graph.build_done", repo=repo_name, files_total=file_count,
-                skipped_files=stats["skipped_files"],
-                changed_snippets=stats["changed_snippets"],
-                unchanged_snippets=stats["unchanged_snippets"],
-                orphaned_snippets=stats["orphaned_snippets"])
+    logger.info(
+        "graph.build_done",
+        repo=repo_name,
+        files_total=file_count,
+        skipped_files=stats["skipped_files"],
+        changed_snippets=stats["changed_snippets"],
+        unchanged_snippets=stats["unchanged_snippets"],
+        orphaned_snippets=stats["orphaned_snippets"],
+    )
     neo4j_client.compute_repo_rollups(repo_name)
     neo4j_client.compute_proficiency()
 
@@ -234,7 +344,9 @@ def _link_chunk_skills(session, chunk, rel_path, chunk_skills, repo_path):
             "MERGE (cs)-[d:DEMONSTRATES]->(s) "
             "SET d.snippet_lines = $lines, "
             "    d.first_seen = $first, d.last_seen = $last",
-            skill=skill, name=chunk.name, fp=rel_path,
+            skill=skill,
+            name=chunk.name,
+            fp=rel_path,
             lines=snippet_lines,
             first=str(first_seen) if first_seen else None,
             last=str(last_seen) if last_seen else None,
@@ -243,12 +355,11 @@ def _link_chunk_skills(session, chunk, rel_path, chunk_skills, repo_path):
 
 def _walk_code_files(repo_path: Path):
     import os
+
     for dirpath, dirnames, filenames in os.walk(repo_path, topdown=True):
         # Prune skipped dirs and nested git repos in-place
         dirnames[:] = [
-            d for d in dirnames
-            if d not in SKIP_DIRS
-            and not (Path(dirpath) / d / ".git").exists()
+            d for d in dirnames if d not in SKIP_DIRS and not (Path(dirpath) / d / ".git").exists()
         ]
         for fname in sorted(filenames):
             if Path(fname).suffix.lower() in CODE_EXTENSIONS:

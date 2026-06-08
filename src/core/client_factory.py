@@ -37,7 +37,9 @@ def build_clients(settings: Settings) -> dict:
     # Ingestion chat client: always Sonnet (quality matters for context generation
     # and skill classification that permanently affect embeddings), with NIM fallback
     if settings.anthropic_api_key:
-        ingestion_chat_client = ClaudeChatClient(settings.anthropic_api_key, model="claude-sonnet-4-20250514")
+        ingestion_chat_client = ClaudeChatClient(
+            settings.anthropic_api_key, model="claude-sonnet-4-20250514"
+        )
     else:
         ingestion_chat_client = NimClient(settings.nvidia_api_key)
 

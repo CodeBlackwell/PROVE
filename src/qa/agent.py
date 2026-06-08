@@ -2,12 +2,19 @@ import json
 import math
 import re
 import time
+from collections.abc import Generator
 from dataclasses import dataclass, field
-from typing import Generator
 
 from src.core import logger
 from src.core.neo4j_client import Neo4jClient
-from src.qa.tools import search_code, get_evidence, search_resume, find_gaps, get_repo_overview, get_connected_evidence
+from src.qa.tools import (
+    find_gaps,
+    get_connected_evidence,
+    get_evidence,
+    get_repo_overview,
+    search_code,
+    search_resume,
+)
 from src.ui.competency_map import build_query_subgraph
 
 
@@ -19,8 +26,11 @@ class EntityRef:
 
 
 STATUS_PRIORITY = {
-    "demonstrated": 5, "not_found_but_related": 4,
-    "claimed_only": 3, "inferred": 2, "not_found": 1,
+    "demonstrated": 5,
+    "not_found_but_related": 4,
+    "claimed_only": 3,
+    "inferred": 2,
+    "not_found": 1,
 }
 
 
@@ -32,13 +42,11 @@ def _merge_entity(entities: dict[str, EntityRef], ref: EntityRef):
         existing.status = ref.status
         existing.related = list(set(existing.related + ref.related))
 
+
 SYSTEM_PROMPT_TEMPLATE = (
     "You are a QA agent representing {name}'s software engineering portfolio. "
     "You have access to their resume data and code repositories indexed with vector embeddings.\n\n"
-    "NAME RULES (STRICT):\n"
-    "- Refer to the engineer as \"Le\" or \"LeChristopher\" ONLY.\n"
-    "- NEVER use \"Christopher\", \"Chris\", or any other abbreviation.\n"
-    "- Never write the name in ALL CAPS.\n\n"
+    "{name_rules}"
     "SELF-AWARENESS:\n"
     "- The PROVE repository IS this application — the portfolio agent you are running inside.\n"
     "- If asked 'how did Le build this' or 'how does this app work', use get_repo_overview "
@@ -73,6 +81,19 @@ SYSTEM_PROMPT_TEMPLATE = (
 )
 
 
+def _build_name_rules(preferred: list[str], forbidden: list[str]) -> str:
+    """Render the strict NAME RULES block from subject config (empty if no preferred names)."""
+    if not preferred:
+        return ""
+    allowed = " or ".join(f'"{n}"' for n in preferred)
+    lines = ["NAME RULES (STRICT):", f"- Refer to the engineer as {allowed} ONLY."]
+    if forbidden:
+        banned = ", ".join(f'"{n}"' for n in forbidden)
+        lines.append(f"- NEVER use {banned}, or any other abbreviation.")
+    lines.append("- Never write the name in ALL CAPS.")
+    return "\n".join(lines) + "\n\n"
+
+
 def _strip_think(text: str) -> str:
     return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
@@ -93,7 +114,7 @@ def _trim_answer(text: str, max_sentences: int = 6) -> str:
     if "\n#" in text or "\n- " in text:
         return text
     # Otherwise cap by sentence count
-    sentences = re.split(r'(?<=[.!?])\s+', text)
+    sentences = re.split(r"(?<=[.!?])\s+", text)
     if len(sentences) > max_sentences:
         return " ".join(sentences[:max_sentences])
     return text
@@ -114,6 +135,7 @@ def _compute_confidence(evidence: list[dict]) -> str:
         return "Partial"
     return "None"
 
+
 MAX_EVIDENCE_SHOWN = 5
 
 PROFICIENCY_WEIGHT = {"extensive": 3, "moderate": 2, "minimal": 1, "none": 0}
@@ -126,10 +148,14 @@ def _sort_evidence(evidence: list[dict]) -> list[dict]:
     best per file), then interleaves results from different repos so the
     curator sees variety rather than 20 snippets from the same skill.
     """
-    ranked = sorted(evidence, key=lambda e: (
-        PROFICIENCY_WEIGHT.get(e.get("proficiency", ""), 0),
-        e.get("score", 0),
-    ), reverse=True)
+    ranked = sorted(
+        evidence,
+        key=lambda e: (
+            PROFICIENCY_WEIGHT.get(e.get("proficiency", ""), 0),
+            e.get("score", 0),
+        ),
+        reverse=True,
+    )
 
     # Deduplicate by file — keep best snippet per file
     seen_files: set[str] = set()
@@ -203,7 +229,12 @@ TOOL_DEFINITIONS = [
             "description": "Check which skills have code evidence with proficiency levels, which are only resume claims, and which are missing. Returns hierarchy-aware results with domain/category context.",
             "parameters": {
                 "type": "object",
-                "properties": {"skills_csv": {"type": "string", "description": "Comma-separated skill names to check"}},
+                "properties": {
+                    "skills_csv": {
+                        "type": "string",
+                        "description": "Comma-separated skill names to check",
+                    }
+                },
                 "required": ["skills_csv"],
             },
         },
@@ -228,7 +259,10 @@ TOOL_DEFINITIONS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "skill_name": {"type": "string", "description": "Skill name to find evidence for"},
+                    "skill_name": {
+                        "type": "string",
+                        "description": "Skill name to find evidence for",
+                    },
                     "repo_name": {"type": "string", "description": "Repository to search within"},
                 },
                 "required": ["skill_name", "repo_name"],
@@ -251,9 +285,15 @@ def _github_link(e: dict, github_owner: str = "codeblackwell") -> str:
     return f"`{fp}:L{start}`"
 
 
-def format_response(answer: str, evidence: list[dict], annotations: list[str] | None = None,
-                     curation: list[dict] | None = None, total_count: int | None = None,
-                     show_private_code: bool = False, github_owner: str = "codeblackwell") -> str:
+def format_response(
+    answer: str,
+    evidence: list[dict],
+    annotations: list[str] | None = None,
+    curation: list[dict] | None = None,
+    total_count: int | None = None,
+    show_private_code: bool = False,
+    github_owner: str = "codeblackwell",
+) -> str:
     shown = evidence[:MAX_EVIDENCE_SHOWN]
     total = total_count if total_count is not None else len(evidence)
     lines = [answer, ""]
@@ -267,7 +307,9 @@ def format_response(answer: str, evidence: list[dict], annotations: list[str] | 
             force_link = e.get("private") and not show_private_code
 
             if force_link or (cur and cur.get("mode") == "link"):
-                explanation = cur["explanation"] if cur and cur.get("explanation") else e.get("context", "")
+                explanation = (
+                    cur["explanation"] if cur and cur.get("explanation") else e.get("context", "")
+                )
                 lines.append(f"\n{link}")
                 if force_link:
                     lines.append("`[CODE REDACTED — PRIVATE REPO]`")
@@ -276,7 +318,11 @@ def format_response(answer: str, evidence: list[dict], annotations: list[str] | 
             else:
                 content = e.get("content", "")
                 ctx = e.get("context", "")
-                explanation = cur["explanation"] if cur else (annotations[i] if annotations and i < len(annotations) else "")
+                explanation = (
+                    cur["explanation"]
+                    if cur
+                    else (annotations[i] if annotations and i < len(annotations) else "")
+                )
                 if not explanation and ctx:
                     explanation = ctx
                 lines.append(f"\n{link}")
@@ -315,22 +361,37 @@ CURATE_PROMPT = (
 
 
 class QAAgent:
-    def __init__(self, neo4j_client: Neo4jClient, chat_client, embed_client,
-                 show_private_code: bool = False, github_owner: str = "codeblackwell"):
+    def __init__(
+        self,
+        neo4j_client: Neo4jClient,
+        chat_client,
+        embed_client,
+        show_private_code: bool = False,
+        github_owner: str = "codeblackwell",
+        subject=None,
+    ):
         self.neo4j = neo4j_client
         self.chat = chat_client
         self.embed = embed_client
         self.show_private_code = show_private_code
         self.github_owner = github_owner
+        self.subject = subject
         self.system_prompt = self._resolve_prompt()
 
     def _resolve_prompt(self) -> str:
+        fallback = self.subject.name if self.subject else "a software engineer"
         with self.neo4j.driver.session() as session:
             result = session.run("MATCH (e:Engineer) RETURN e.name AS name LIMIT 1")
             record = result.single()
-            name = record["name"] if record else "a software engineer"
+            name = record["name"] if record else fallback
+        preferred = self.subject.preferred_names if self.subject else []
+        forbidden = self.subject.forbidden_names if self.subject else []
         inventory = self._build_skill_inventory()
-        return SYSTEM_PROMPT_TEMPLATE.format(name=name, skill_inventory=inventory)
+        return SYSTEM_PROMPT_TEMPLATE.format(
+            name=name,
+            name_rules=_build_name_rules(preferred, forbidden),
+            skill_inventory=inventory,
+        )
 
     def _build_skill_inventory(self) -> str:
         skills = self.neo4j.get_competency_map()
@@ -342,10 +403,14 @@ class QAAgent:
         lines = ["SKILL INVENTORY (strongest first — ranked by breadth × depth):"]
         for domain, entries in sorted(by_domain.items()):
             # Rank by log(evidence) * repo_count so one huge repo doesn't dominate
-            top = sorted(entries, key=lambda e: (
-                PROFICIENCY_WEIGHT.get(e["proficiency"], 0),
-                math.log1p(e["evidence_count"]) * max(e.get("repo_count", 1), 1),
-            ), reverse=True)[:5]
+            top = sorted(
+                entries,
+                key=lambda e: (
+                    PROFICIENCY_WEIGHT.get(e["proficiency"], 0),
+                    math.log1p(e["evidence_count"]) * max(e.get("repo_count", 1), 1),
+                ),
+                reverse=True,
+            )[:5]
             skills_str = ", ".join(
                 f"{e['skill']} ({e['proficiency']}, {e['evidence_count']} examples across {e.get('repo_count', 1)} repos)"
                 for e in top
@@ -368,7 +433,9 @@ class QAAgent:
             "search_resume": lambda: search_resume(args["query"], self.neo4j),
             "find_gaps": lambda: find_gaps(args["skills_csv"], self.neo4j),
             "get_repo_overview": lambda: get_repo_overview(args["repo_name"], self.neo4j),
-            "get_connected_evidence": lambda: get_connected_evidence(args["skill_name"], args["repo_name"], self.neo4j),
+            "get_connected_evidence": lambda: get_connected_evidence(
+                args["skill_name"], args["repo_name"], self.neo4j
+            ),
         }
         result = dispatch.get(name, lambda: {"error": f"Unknown tool: {name}"})()
         if not self.show_private_code:
@@ -377,14 +444,16 @@ class QAAgent:
         latency = int((time.perf_counter() - t0) * 1000)
 
         result_count = len(result) if isinstance(result, list) else 1
-        logger.log_tool_call(tool_name=name, args=args,
-                             result_size=len(serialized), latency_ms=latency)
+        logger.log_tool_call(
+            tool_name=name, args=args, result_size=len(serialized), latency_ms=latency
+        )
         logger.log_tool_result(tool_name=name, result_count=result_count)
 
         return serialized
 
-    def _collect_entities(self, tool_name: str, args: dict, tool_result: str,
-                          entities: dict[str, EntityRef]):
+    def _collect_entities(
+        self, tool_name: str, args: dict, tool_result: str, entities: dict[str, EntityRef]
+    ):
         if tool_name == "get_evidence":
             try:
                 parsed = json.loads(tool_result)
@@ -453,10 +522,13 @@ class QAAgent:
             snippets.append(f"{header}\n{preview}")
         user_msg = f"Question: {question}\n\nSnippets:\n" + "\n\n".join(snippets)
         try:
-            response = self.chat.chat([
-                {"role": "system", "content": ANNOTATE_PROMPT},
-                {"role": "user", "content": user_msg},
-            ], purpose="annotate_evidence")
+            response = self.chat.chat(
+                [
+                    {"role": "system", "content": ANNOTATE_PROMPT},
+                    {"role": "user", "content": user_msg},
+                ],
+                purpose="annotate_evidence",
+            )
             raw = _strip_think(response.choices[0].message.content)
             raw = re.sub(r"^```\w*\n|```$", "", raw.strip())
             return json.loads(raw)
@@ -464,7 +536,9 @@ class QAAgent:
             logger.warning("agent.annotate_failed", error=str(e))
             return None
 
-    def _curate_evidence(self, question: str, evidence: list[dict]) -> tuple[list[dict], list[dict] | None]:
+    def _curate_evidence(
+        self, question: str, evidence: list[dict]
+    ) -> tuple[list[dict], list[dict] | None]:
         """Select the most impressive evidence and assign display modes (inline/link)."""
         if not evidence:
             return [], None
@@ -479,17 +553,22 @@ class QAAgent:
             skill = e.get("skill_name", "")
             ctx = e.get("context", "")
             preview = "\n".join(e.get("content", "").split("\n")[:15])
-            header = f"[{i}] {repo}/{fp} (proficiency: {prof}{', skill: ' + skill if skill else ''})"
+            header = (
+                f"[{i}] {repo}/{fp} (proficiency: {prof}{', skill: ' + skill if skill else ''})"
+            )
             if ctx:
                 header += f"\nContext: {ctx}"
             summaries.append(f"{header}\n{preview}")
         user_msg = f"Question: {question}\n\nSnippets:\n\n" + "\n\n".join(summaries)
 
         try:
-            response = self.chat.chat([
-                {"role": "system", "content": CURATE_PROMPT},
-                {"role": "user", "content": user_msg},
-            ], purpose="curate_evidence")
+            response = self.chat.chat(
+                [
+                    {"role": "system", "content": CURATE_PROMPT},
+                    {"role": "user", "content": user_msg},
+                ],
+                purpose="curate_evidence",
+            )
             raw = _strip_think(response.choices[0].message.content)
             raw = re.sub(r"^```\w*\n|```$", "", raw.strip())
             parsed = json.loads(raw)
@@ -504,7 +583,9 @@ class QAAgent:
                 idx = k.get("index", 0)
                 if 0 <= idx < len(evidence):
                     curated.append(evidence[idx])
-                    meta.append({"mode": k.get("mode", "inline"), "explanation": k.get("explanation", "")})
+                    meta.append(
+                        {"mode": k.get("mode", "inline"), "explanation": k.get("explanation", "")}
+                    )
             logger.log_curation(kept=len(curated), dropped=dropped, total=len(evidence))
             return curated or evidence[:MAX_EVIDENCE_SHOWN], meta or None
         except Exception as e:
@@ -512,8 +593,7 @@ class QAAgent:
             shown = evidence[:MAX_EVIDENCE_SHOWN]
             annotations = self._annotate_evidence(question, shown)
             if annotations:
-                logger.log_curation(kept=len(shown), dropped=0,
-                                    total=len(evidence), fallback=True)
+                logger.log_curation(kept=len(shown), dropped=0, total=len(evidence), fallback=True)
                 return shown, [{"mode": "inline", "explanation": a} for a in annotations]
             return shown, None
 
@@ -521,7 +601,11 @@ class QAAgent:
         msg = {"role": "assistant", "content": choice.message.content}
         if choice.message.tool_calls:
             msg["tool_calls"] = [
-                {"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+                }
                 for tc in choice.message.tool_calls
             ]
         return msg
@@ -540,23 +624,46 @@ class QAAgent:
             choice = response.choices[0]
             if not choice.message.tool_calls:
                 if tool_call_count < MIN_TOOL_CALLS:
-                    logger.info("agent.nudge", tool_calls_so_far=tool_call_count, min_required=MIN_TOOL_CALLS)
+                    logger.info(
+                        "agent.nudge",
+                        tool_calls_so_far=tool_call_count,
+                        min_required=MIN_TOOL_CALLS,
+                    )
                     messages.append({"role": "assistant", "content": choice.message.content or ""})
-                    messages.append({"role": "user", "content": "Use at least one more tool to gather supporting evidence before answering."})
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": "Use at least one more tool to gather supporting evidence before answering.",
+                        }
+                    )
                     continue
                 logger.info("agent.react_done", step=step + 1, reason="final_answer")
                 repos = {e.get("repo") for e in all_evidence if e.get("repo")}
                 skills = {e.get("skill_name") for e in all_evidence if e.get("skill_name")}
-                logger.log_evidence(collected=len(all_evidence),
-                                    unique_repos=len(repos), unique_skills=len(skills))
+                logger.log_evidence(
+                    collected=len(all_evidence), unique_repos=len(repos), unique_skills=len(skills)
+                )
                 sorted_ev = _sort_evidence(all_evidence)
                 curated, curation_meta = self._curate_evidence(question, sorted_ev)
-                return format_response(_trim_answer(_strip_think(choice.message.content or "")), curated, curation=curation_meta, total_count=len(all_evidence), show_private_code=self.show_private_code, github_owner=self.github_owner)
+                return format_response(
+                    _trim_answer(_strip_think(choice.message.content or "")),
+                    curated,
+                    curation=curation_meta,
+                    total_count=len(all_evidence),
+                    show_private_code=self.show_private_code,
+                    github_owner=self.github_owner,
+                )
             messages.append(self._assistant_msg(choice))
             for tc in choice.message.tool_calls:
                 tool_call_count += 1
                 result = self._execute_tool(tc.function.name, json.loads(tc.function.arguments))
-                messages.append({"role": "tool", "tool_call_id": tc.id, "content": result[:MAX_TOOL_RESULT_CHARS]})
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc.id,
+                        "content": result[:MAX_TOOL_RESULT_CHARS],
+                    }
+                )
                 self._collect_evidence(result, all_evidence)
 
         logger.info("agent.react_done", step=MAX_TOOL_CALLS, reason="max_calls_reached")
@@ -567,13 +674,22 @@ class QAAgent:
         # Log evidence summary
         repos = {e.get("repo") for e in all_evidence if e.get("repo")}
         skills = {e.get("skill_name") for e in all_evidence if e.get("skill_name")}
-        logger.log_evidence(collected=len(all_evidence),
-                            unique_repos=len(repos), unique_skills=len(skills))
+        logger.log_evidence(
+            collected=len(all_evidence), unique_repos=len(repos), unique_skills=len(skills)
+        )
 
-        return format_response(_trim_answer(_strip_think(response.choices[0].message.content or "")), curated, curation=curation_meta, total_count=len(all_evidence), show_private_code=self.show_private_code, github_owner=self.github_owner)
+        return format_response(
+            _trim_answer(_strip_think(response.choices[0].message.content or "")),
+            curated,
+            curation=curation_meta,
+            total_count=len(all_evidence),
+            show_private_code=self.show_private_code,
+            github_owner=self.github_owner,
+        )
 
-    def answer_stream(self, question: str,
-                       history: list[dict] | None = None) -> Generator[str | dict, None, None]:
+    def answer_stream(
+        self, question: str, history: list[dict] | None = None
+    ) -> Generator[str | dict, None, None]:
         """Run the ReAct loop and yield status messages, graph data, and the final response.
 
         Args:
@@ -596,9 +712,18 @@ class QAAgent:
             choice = response.choices[0]
             if not choice.message.tool_calls:
                 if tool_call_count < MIN_TOOL_CALLS:
-                    logger.info("agent.nudge", tool_calls_so_far=tool_call_count, min_required=MIN_TOOL_CALLS)
+                    logger.info(
+                        "agent.nudge",
+                        tool_calls_so_far=tool_call_count,
+                        min_required=MIN_TOOL_CALLS,
+                    )
                     messages.append({"role": "assistant", "content": choice.message.content or ""})
-                    messages.append({"role": "user", "content": "Use at least one more tool to gather supporting evidence before answering."})
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": "Use at least one more tool to gather supporting evidence before answering.",
+                        }
+                    )
                     continue
                 logger.info("agent.react_done", step=step + 1, reason="final_answer")
                 break
@@ -606,9 +731,21 @@ class QAAgent:
             for tc in choice.message.tool_calls:
                 tool_call_count += 1
                 args = json.loads(tc.function.arguments)
-                yield {"_status": True, "phase": "tool", "tool": tc.function.name, "args": args, "step": step + 1}
+                yield {
+                    "_status": True,
+                    "phase": "tool",
+                    "tool": tc.function.name,
+                    "args": args,
+                    "step": step + 1,
+                }
                 result = self._execute_tool(tc.function.name, args)
-                messages.append({"role": "tool", "tool_call_id": tc.id, "content": result[:MAX_TOOL_RESULT_CHARS]})
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc.id,
+                        "content": result[:MAX_TOOL_RESULT_CHARS],
+                    }
+                )
                 self._collect_evidence(result, all_evidence)
                 self._collect_entities(tc.function.name, args, result, entities)
                 # Emit intermediate subgraph for progressive reveal
@@ -624,15 +761,19 @@ class QAAgent:
         if entities:
             subgraph = build_query_subgraph(self.neo4j, entities)
             if subgraph["nodes"]:
-                logger.debug("agent.subgraph", node_count=len(subgraph["nodes"]),
-                              edge_count=len(subgraph["edges"]))
+                logger.debug(
+                    "agent.subgraph",
+                    node_count=len(subgraph["nodes"]),
+                    edge_count=len(subgraph["edges"]),
+                )
                 yield subgraph
 
         # Log evidence summary
         repos = {e.get("repo") for e in all_evidence if e.get("repo")}
         skills = {e.get("skill_name") for e in all_evidence if e.get("skill_name")}
-        logger.log_evidence(collected=len(all_evidence),
-                            unique_repos=len(repos), unique_skills=len(skills))
+        logger.log_evidence(
+            collected=len(all_evidence), unique_repos=len(repos), unique_skills=len(skills)
+        )
 
         sorted_ev = _sort_evidence(all_evidence)
         yield {"_status": True, "phase": "curating"}
@@ -666,4 +807,11 @@ class QAAgent:
             "github_owner": self.github_owner,
         }
 
-        yield format_response(_trim_answer(_strip_think(choice.message.content or "")), curated, curation=curation_meta, total_count=len(all_evidence), show_private_code=self.show_private_code, github_owner=self.github_owner)
+        yield format_response(
+            _trim_answer(_strip_think(choice.message.content or "")),
+            curated,
+            curation=curation_meta,
+            total_count=len(all_evidence),
+            show_private_code=self.show_private_code,
+            github_owner=self.github_owner,
+        )

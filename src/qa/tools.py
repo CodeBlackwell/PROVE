@@ -1,5 +1,5 @@
 from src.core.neo4j_client import Neo4jClient
-from src.ingestion.skill_taxonomy import SKILL_HIERARCHY, RESUME_SKILL_ALIASES, CATEGORY_TO_DOMAIN
+from src.ingestion.skill_taxonomy import CATEGORY_TO_DOMAIN, RESUME_SKILL_ALIASES, SKILL_HIERARCHY
 
 MIN_SCORE = 0.3
 
@@ -49,12 +49,16 @@ def find_gaps(skills_csv: str, neo4j_client: Neo4jClient) -> list[dict]:
     for skill in (s.strip() for s in skills_csv.split(",") if s.strip()):
         info = neo4j_client.get_skill_with_hierarchy(skill)
         if info and info.get("snippet_count", 0) > 0:
-            results.append({
-                "skill": skill, "status": "demonstrated",
-                "code_examples": info["snippet_count"],
-                "proficiency": info.get("proficiency", "none"),
-                "domain": info.get("domain"), "category": info.get("category"),
-            })
+            results.append(
+                {
+                    "skill": skill,
+                    "status": "demonstrated",
+                    "code_examples": info["snippet_count"],
+                    "proficiency": info.get("proficiency", "none"),
+                    "domain": info.get("domain"),
+                    "category": info.get("category"),
+                }
+            )
             continue
 
         # Check category-level for related skills
@@ -63,11 +67,16 @@ def find_gaps(skills_csv: str, neo4j_client: Neo4jClient) -> list[dict]:
             domain, category = hierarchy
             related = _find_related_in_category(category, neo4j_client)
             if related:
-                results.append({
-                    "skill": skill, "status": "not_found_but_related",
-                    "code_examples": 0, "domain": domain, "category": category,
-                    "related_demonstrated": related,
-                })
+                results.append(
+                    {
+                        "skill": skill,
+                        "status": "not_found_but_related",
+                        "code_examples": 0,
+                        "domain": domain,
+                        "category": category,
+                        "related_demonstrated": related,
+                    }
+                )
                 continue
 
         with neo4j_client.driver.session() as session:
@@ -85,10 +94,15 @@ def find_gaps(skills_csv: str, neo4j_client: Neo4jClient) -> list[dict]:
                 hier = SKILL_HIERARCHY.get(alias)
                 if hier:
                     alias_dom, alias_cat = hier
-            results.append({
-                "skill": skill, "status": "claimed_only", "code_examples": 0,
-                "domain": alias_dom, "category": alias_cat,
-            })
+            results.append(
+                {
+                    "skill": skill,
+                    "status": "claimed_only",
+                    "code_examples": 0,
+                    "domain": alias_dom,
+                    "category": alias_cat,
+                }
+            )
         else:
             results.append({"skill": skill, "status": "not_found", "code_examples": 0})
     return results
@@ -120,7 +134,9 @@ def get_repo_overview(repo_name: str, neo4j_client: Neo4jClient) -> dict:
     return overview
 
 
-def get_connected_evidence(skill_name: str, repo_name: str, neo4j_client: Neo4jClient) -> list[dict]:
+def get_connected_evidence(
+    skill_name: str, repo_name: str, neo4j_client: Neo4jClient
+) -> list[dict]:
     snippets = neo4j_client.get_connected_snippets(skill_name, repo_name)
     return [
         {

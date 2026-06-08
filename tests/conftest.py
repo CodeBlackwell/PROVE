@@ -15,6 +15,8 @@ def nim_client(settings):
 
 @pytest.fixture
 def neo4j_client(settings):
-    client = Neo4jClient(uri=settings.neo4j_uri, user=settings.neo4j_user, password=settings.neo4j_password)
+    client = Neo4jClient(
+        uri=settings.neo4j_uri, user=settings.neo4j_user, password=settings.neo4j_password
+    )
     yield client
     client.close()

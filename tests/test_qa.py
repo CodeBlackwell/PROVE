@@ -1,17 +1,27 @@
-from unittest.mock import MagicMock, patch
 import json
+from unittest.mock import MagicMock
 
-from src.qa.tools import search_code, get_evidence, search_resume, get_repo_overview, get_connected_evidence, find_gaps
-from src.qa.agent import QAAgent, format_response, EntityRef, _merge_entity
-from src.ui.competency_map import get_subgraph, get_gap_overlay, build_query_subgraph
+from src.qa.agent import EntityRef, QAAgent, _merge_entity, format_response
+from src.qa.tools import (
+    find_gaps,
+    get_connected_evidence,
+    get_evidence,
+    get_repo_overview,
+    search_code,
+    search_resume,
+)
+from src.ui.competency_map import build_query_subgraph, get_gap_overlay, get_subgraph
 
 
 class _FakeResult:
     """Mimics a Neo4j Result object supporting both .single() and iteration."""
+
     def __init__(self, records):
         self._records = records
+
     def single(self):
         return self._records[0] if self._records else None
+
     def __iter__(self):
         return iter(self._records)
 
@@ -19,37 +29,85 @@ class _FakeResult:
 def _mock_neo4j():
     client = MagicMock()
     client.vector_search.return_value = [
-        {"props": {"file_path": "src/main.py", "start_line": 10, "end_line": 20, "content": "def hello():"}, "score": 0.95},
-        {"props": {"file_path": "src/utils.py", "start_line": 1, "end_line": 5, "content": "import os"}, "score": 0.80},
+        {
+            "props": {
+                "file_path": "src/main.py",
+                "start_line": 10,
+                "end_line": 20,
+                "content": "def hello():",
+            },
+            "score": 0.95,
+        },
+        {
+            "props": {
+                "file_path": "src/utils.py",
+                "start_line": 1,
+                "end_line": 5,
+                "content": "import os",
+            },
+            "score": 0.80,
+        },
     ]
     client.get_skill_evidence.return_value = [
         {"file_path": "src/app.py", "start_line": 5, "end_line": 15, "content": "class App:"},
     ]
     client.get_competency_map.return_value = [
-        {"domain": "AI & Machine Learning", "category": "LLM & Generative AI",
-         "skill": "LLM Integration", "proficiency": "extensive", "evidence_count": 42},
-        {"domain": "Backend Engineering", "category": "Web Frameworks",
-         "skill": "FastAPI", "proficiency": "extensive", "evidence_count": 38},
+        {
+            "domain": "AI & Machine Learning",
+            "category": "LLM & Generative AI",
+            "skill": "LLM Integration",
+            "proficiency": "extensive",
+            "evidence_count": 42,
+        },
+        {
+            "domain": "Backend Engineering",
+            "category": "Web Frameworks",
+            "skill": "FastAPI",
+            "proficiency": "extensive",
+            "evidence_count": 38,
+        },
     ]
     client.get_repo_overview.return_value = {
-        "name": "Agent_Blackwell", "path": "/repos/Agent_Blackwell",
+        "name": "Agent_Blackwell",
+        "path": "/repos/Agent_Blackwell",
         "file_count": 15,
         "sample_files": ["src/agent.py", "src/orchestrator.py"],
-        "top_skills": [{"skill": "LLM Integration", "proficiency": "extensive",
-                        "snippet_count": 12, "total_lines": 450}],
+        "top_skills": [
+            {
+                "skill": "LLM Integration",
+                "proficiency": "extensive",
+                "snippet_count": 12,
+                "total_lines": 450,
+            }
+        ],
     }
     client.get_connected_snippets.return_value = [
-        {"file_path": "src/agent.py", "snippet_name": "AgentBase", "start_line": 1, "end_line": 30,
-         "content": "class AgentBase:", "proficiency": "extensive", "related_skills": ["Design Patterns"]},
+        {
+            "file_path": "src/agent.py",
+            "snippet_name": "AgentBase",
+            "start_line": 1,
+            "end_line": 30,
+            "content": "class AgentBase:",
+            "proficiency": "extensive",
+            "related_skills": ["Design Patterns"],
+        },
     ]
     session = MagicMock()
+
     def _mock_run(query, **kwargs):
         if "Engineer" in query:
-            return _FakeResult([
-                {"name": "Chris", "labels": ["Engineer"], "props": {"name": "Chris", "email": "chris@test.com"}},
-            ])
+            return _FakeResult(
+                [
+                    {
+                        "name": "Chris",
+                        "labels": ["Engineer"],
+                        "props": {"name": "Chris", "email": "chris@test.com"},
+                    },
+                ]
+            )
         # Return empty for subgraph/competency queries
         return _FakeResult([])
+
     session.run = MagicMock(side_effect=_mock_run)
     client.driver.session.return_value.__enter__ = MagicMock(return_value=session)
     client.driver.session.return_value.__exit__ = MagicMock(return_value=False)
@@ -127,7 +185,11 @@ def test_react_loop():
     # 3 ReAct calls (2 tools + final) + curate/annotate calls
     assert chat.chat.call_count >= 3
     first_call_kwargs = chat.chat.call_args_list[0]
-    tools_arg = first_call_kwargs[0][1] if len(first_call_kwargs[0]) > 1 else first_call_kwargs[1].get("tools")
+    tools_arg = (
+        first_call_kwargs[0][1]
+        if len(first_call_kwargs[0]) > 1
+        else first_call_kwargs[1].get("tools")
+    )
     assert tools_arg is not None
 
 
@@ -137,7 +199,7 @@ def test_react_loop_max_calls():
     embed = _mock_embed()
 
     tool_resp = _make_chat_response(
-        tool_calls=[_make_tool_call("search_code", {"query": "test"}, f"call_1")]
+        tool_calls=[_make_tool_call("search_code", {"query": "test"}, "call_1")]
     )
     final_resp = _make_chat_response(content="Final answer after max calls.")
 
@@ -153,9 +215,27 @@ def test_react_loop_max_calls():
 
 def test_response_formatting():
     evidence = [
-        {"file_path": "src/a.py", "start_line": 1, "end_line": 10, "content": "class Foo:", "score": 0.9},
-        {"file_path": "src/b.py", "start_line": 5, "end_line": 15, "content": "def bar():", "score": 0.8},
-        {"file_path": "src/c.py", "start_line": 20, "end_line": 30, "content": "async def baz():", "score": 0.7},
+        {
+            "file_path": "src/a.py",
+            "start_line": 1,
+            "end_line": 10,
+            "content": "class Foo:",
+            "score": 0.9,
+        },
+        {
+            "file_path": "src/b.py",
+            "start_line": 5,
+            "end_line": 15,
+            "content": "def bar():",
+            "score": 0.8,
+        },
+        {
+            "file_path": "src/c.py",
+            "start_line": 20,
+            "end_line": 30,
+            "content": "async def baz():",
+            "score": 0.7,
+        },
     ]
     result = format_response("Engineer knows Python.", evidence)
     assert "`src/a.py:L1`" in result
@@ -173,12 +253,26 @@ def test_response_formatting():
 def test_private_code_hidden_by_default():
     """Private repo snippets show link + context but never raw code."""
     evidence = [
-        {"file_path": "src/secret.py", "start_line": 1, "end_line": 10,
-         "content": "def proprietary_algo():", "context": "Implements a proprietary algorithm",
-         "score": 0.9, "repo": "private-repo", "private": True},
-        {"file_path": "src/open.py", "start_line": 1, "end_line": 10,
-         "content": "def public_func():", "context": "Public utility",
-         "score": 0.8, "repo": "public-repo", "private": False},
+        {
+            "file_path": "src/secret.py",
+            "start_line": 1,
+            "end_line": 10,
+            "content": "def proprietary_algo():",
+            "context": "Implements a proprietary algorithm",
+            "score": 0.9,
+            "repo": "private-repo",
+            "private": True,
+        },
+        {
+            "file_path": "src/open.py",
+            "start_line": 1,
+            "end_line": 10,
+            "content": "def public_func():",
+            "context": "Public utility",
+            "score": 0.8,
+            "repo": "public-repo",
+            "private": False,
+        },
     ]
     # Default: show_private_code=False
     result = format_response("Answer.", evidence)
@@ -218,13 +312,28 @@ def test_redact_private_strips_content():
 
 def test_response_formatting_with_curation():
     evidence = [
-        {"file_path": "src/agent.py", "start_line": 1, "end_line": 50,
-         "content": "class AgentOrchestrator:", "score": 0.9, "repo": "multi-agent"},
-        {"file_path": "src/utils.py", "start_line": 5, "end_line": 10,
-         "content": "def format():", "score": 0.8, "repo": "tools"},
+        {
+            "file_path": "src/agent.py",
+            "start_line": 1,
+            "end_line": 50,
+            "content": "class AgentOrchestrator:",
+            "score": 0.9,
+            "repo": "multi-agent",
+        },
+        {
+            "file_path": "src/utils.py",
+            "start_line": 5,
+            "end_line": 10,
+            "content": "def format():",
+            "score": 0.8,
+            "repo": "tools",
+        },
     ]
     curation = [
-        {"mode": "link", "explanation": "Orchestrates multi-agent coordination with fault tolerance"},
+        {
+            "mode": "link",
+            "explanation": "Orchestrates multi-agent coordination with fault tolerance",
+        },
         {"mode": "inline", "explanation": "Clean utility pattern"},
     ]
     result = format_response("Strong engineer.", evidence, curation=curation)
@@ -304,8 +413,12 @@ def test_dispatch_new_tools():
     result = json.loads(agent._execute_tool("get_repo_overview", {"repo_name": "Agent_Blackwell"}))
     assert result["name"] == "Agent_Blackwell"
 
-    result = json.loads(agent._execute_tool("get_connected_evidence",
-                                            {"skill_name": "LLM Integration", "repo_name": "Agent_Blackwell"}))
+    result = json.loads(
+        agent._execute_tool(
+            "get_connected_evidence",
+            {"skill_name": "LLM Integration", "repo_name": "Agent_Blackwell"},
+        )
+    )
     assert isinstance(result, list)
     assert len(result) == 1
 
@@ -316,10 +429,19 @@ def test_curate_evidence():
     embed = _mock_embed()
 
     # Mock chat.chat() to return OpenAI-shaped response for curation
-    curation_response = _make_chat_response(content=json.dumps([
-        {"index": 0, "action": "keep", "mode": "inline", "explanation": "Impressive orchestration"},
-        {"index": 1, "action": "drop", "mode": "inline", "explanation": ""},
-    ]))
+    curation_response = _make_chat_response(
+        content=json.dumps(
+            [
+                {
+                    "index": 0,
+                    "action": "keep",
+                    "mode": "inline",
+                    "explanation": "Impressive orchestration",
+                },
+                {"index": 1, "action": "drop", "mode": "inline", "explanation": ""},
+            ]
+        )
+    )
     chat.chat = MagicMock(return_value=curation_response)
 
     agent = QAAgent(neo4j, chat, embed)
@@ -350,7 +472,9 @@ def test_entity_ref_merge_priority():
     assert entities["React"].status == "demonstrated"
     # not_found_but_related beats claimed_only
     _merge_entity(entities, EntityRef("GraphQL", "claimed_only"))
-    _merge_entity(entities, EntityRef("GraphQL", "not_found_but_related", related=["REST API Design"]))
+    _merge_entity(
+        entities, EntityRef("GraphQL", "not_found_but_related", related=["REST API Design"])
+    )
     assert entities["GraphQL"].status == "not_found_but_related"
     assert "REST API Design" in entities["GraphQL"].related
 
@@ -359,9 +483,15 @@ def test_subgraph_meta_on_nodes():
     neo4j = MagicMock()
     session = MagicMock()
     session.run.return_value = [
-        {"domain": "Backend Engineering", "category": "Web Frameworks", "skill": "FastAPI",
-         "proficiency": "extensive", "snippet_count": 38, "repo_count": 3,
-         "repos": ["Agent_Blackwell"]},
+        {
+            "domain": "Backend Engineering",
+            "category": "Web Frameworks",
+            "skill": "FastAPI",
+            "proficiency": "extensive",
+            "snippet_count": 38,
+            "repo_count": 3,
+            "repos": ["Agent_Blackwell"],
+        },
     ]
     neo4j.driver.session.return_value.__enter__ = MagicMock(return_value=session)
     neo4j.driver.session.return_value.__exit__ = MagicMock(return_value=False)
@@ -393,7 +523,7 @@ def test_gap_overlay_claimed_only():
     assert len(python_nodes) == 1
     assert python_nodes[0]["meta"]["status"] == "claimed_only"
     assert python_nodes[0]["meta"]["placed_under"] == "Web Frameworks"
-    assert python_nodes[0]["color"] == "#a8a099"
+    assert python_nodes[0]["color"] == "#9a9590"
 
     # React.js maps to skill alias "React" → should have alias_of in meta
     react_nodes = [n for n in result["nodes"] if n["id"] == "skill:React.js"]
@@ -401,22 +531,25 @@ def test_gap_overlay_claimed_only():
     assert react_nodes[0]["meta"]["alias_of"] == "React"
 
     # Should have a dashed edge from React.js to React
-    alias_edges = [e for e in result["edges"] if e["from"] == "skill:React.js" and e["to"] == "skill:React"]
+    alias_edges = [
+        e for e in result["edges"] if e["from"] == "skill:React.js" and e["to"] == "skill:React"
+    ]
     assert len(alias_edges) == 1
 
 
 def test_gap_overlay_related():
     neo4j = MagicMock()
     refs = {
-        "GraphQL": EntityRef("GraphQL", "not_found_but_related",
-                             related=["REST API Design", "gRPC"]),
+        "GraphQL": EntityRef(
+            "GraphQL", "not_found_but_related", related=["REST API Design", "gRPC"]
+        ),
     }
     result = get_gap_overlay(neo4j, refs)
 
     gap_nodes = [n for n in result["nodes"] if n["id"] == "skill:GraphQL"]
     assert len(gap_nodes) == 1
     assert gap_nodes[0]["meta"]["status"] == "gap"
-    assert gap_nodes[0]["color"] == "#c4756a"
+    assert gap_nodes[0]["color"] == "#b35a52"
 
     # Dashed edges to related demonstrated skills
     related_edges = [e for e in result["edges"] if e["from"] == "skill:GraphQL"]
@@ -429,17 +562,22 @@ def test_build_query_subgraph_merges():
     neo4j = MagicMock()
     session = MagicMock()
     session.run.return_value = [
-        {"domain": "Backend Engineering", "category": "API & Protocols",
-         "skill": "REST API Design", "proficiency": "extensive",
-         "snippet_count": 100, "repo_count": 4, "repos": ["SPICE"]},
+        {
+            "domain": "Backend Engineering",
+            "category": "API & Protocols",
+            "skill": "REST API Design",
+            "proficiency": "extensive",
+            "snippet_count": 100,
+            "repo_count": 4,
+            "repos": ["SPICE"],
+        },
     ]
     neo4j.driver.session.return_value.__enter__ = MagicMock(return_value=session)
     neo4j.driver.session.return_value.__exit__ = MagicMock(return_value=False)
 
     refs = {
         "REST API Design": EntityRef("REST API Design", "demonstrated"),
-        "GraphQL": EntityRef("GraphQL", "not_found_but_related",
-                             related=["REST API Design"]),
+        "GraphQL": EntityRef("GraphQL", "not_found_but_related", related=["REST API Design"]),
         "Python": EntityRef("Python", "claimed_only"),
     }
     result = build_query_subgraph(neo4j, refs)

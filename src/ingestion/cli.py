@@ -1,9 +1,11 @@
 import argparse
 import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
 
 from src.config.settings import Settings
 from src.core import logger
+from src.core.claude_chat_client import InsufficientCreditsError
 from src.core.client_factory import build_clients
 from src.ingestion.graph_builder import build_graph
 from src.ingestion.resume_parser import parse_resume
@@ -36,7 +38,8 @@ def fetch_github_repos(username: str, token: str = "") -> tuple[list[str], dict[
 
     Returns (clone_urls, visibility) where visibility maps repo name -> is_private.
     """
-    import json, urllib.request
+    import json
+    import urllib.request
 
     headers = {"Accept": "application/vnd.github+json"}
     if token:
@@ -69,13 +72,18 @@ def ingest(resume_path: str, repo_sources: list[str], github_user: str = ""):
     neo4j_client = clients["neo4j_client"]
     embed_client = clients["embed_client"]
     chat_client = clients["ingestion_chat_client"]
+    db = clients["db"]
     token = settings.github_token
 
     logger.start_session(source="ingestion")
-    logger.info("ingestion.start", resume=resume_path,
-                repo_count=len(repo_sources), github_user=github_user or None,
-                chat_provider=settings.chat_provider,
-                embed_provider=settings.embed_provider)
+    logger.info(
+        "ingestion.start",
+        resume=resume_path,
+        repo_count=len(repo_sources),
+        github_user=github_user or None,
+        chat_provider=settings.chat_provider,
+        embed_provider=settings.embed_provider,
+    )
 
     neo4j_client.init_schema()
     neo4j_client.ensure_taxonomy(TAXONOMY)
@@ -97,6 +105,7 @@ def ingest(resume_path: str, repo_sources: list[str], github_user: str = ""):
         gh_urls, visibility = fetch_github_repos(github_user, token)
         sources.extend(gh_urls)
 
+    fatal = None
     for source in sources:
         name = source.rstrip("/").split("/")[-1]
         logger.log_ingestion_step(step="repo_start", detail=name, source=source)
@@ -105,22 +114,44 @@ def ingest(resume_path: str, repo_sources: list[str], github_user: str = ""):
                 repo_path = clone_repo(source, token)
             else:
                 repo_path = Path(source)
-            build_graph(repo_path, neo4j_client, embed_client, chat_client)
-            # Link engineer to repo and store visibility
+            build_graph(repo_path, neo4j_client, embed_client, chat_client, db)
+            # Link engineer to repo, store visibility, mirror ingest cost rollup
             is_private = visibility.get(repo_path.name, False)
+            rc = db.repo_cost(repo_path.name)
             with neo4j_client.driver.session() as session:
                 session.run(
                     "MATCH (e:Engineer {name: $eng}), (r:Repository {name: $repo}) "
                     "MERGE (e)-[:OWNS]->(r) "
-                    "SET r.private = $private",
-                    eng=engineer_name, repo=repo_path.name, private=is_private,
+                    "SET r.private = $private, "
+                    "    r.ingest_cost_usd = $cost, "
+                    "    r.ingest_input_tokens = $itok, "
+                    "    r.ingest_output_tokens = $otok, "
+                    "    r.ingested_at = $now",
+                    eng=engineer_name,
+                    repo=repo_path.name,
+                    private=is_private,
+                    cost=round(rc["cost_usd"], 6),
+                    itok=rc["input_tokens"],
+                    otok=rc["output_tokens"],
+                    now=datetime.now(UTC).isoformat(),
                 )
             logger.log_ingestion_step(step="repo_done", detail=name)
+        except InsufficientCreditsError as e:
+            fatal = e
+            break
         except Exception as e:
             logger.error("ingestion.repo_error", repo=name, error=str(e))
 
     neo4j_client.close()
-    summary = logger.end_session()
+    logger.end_session()
+    if fatal:
+        # Fatal: no further LLM work can succeed. Distinct exit code 2 for wrappers/CI.
+        logger.error(
+            "ingestion.aborted",
+            reason="insufficient_credits",
+            message="Anthropic credit balance exhausted. Top up credits and re-run.",
+        )
+        raise SystemExit(2)
     logger.info("ingestion.complete", repos_processed=len(sources))
 
 
@@ -128,6 +159,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Ingest resume and repos into PROVE")
     parser.add_argument("--resume", required=True)
     parser.add_argument("--repos", nargs="*", default=[], help="Local paths or GitHub URLs")
-    parser.add_argument("--github-user", default="", help="Fetch all repos for this GitHub username")
+    parser.add_argument(
+        "--github-user", default="", help="Fetch all repos for this GitHub username"
+    )
     args = parser.parse_args()
     ingest(args.resume, args.repos, args.github_user)

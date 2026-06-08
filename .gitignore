@@ -3,6 +3,12 @@ __pycache__/
 *.pyc
 .venv/
 logs/
+*.log
+.DS_Store
+.coverage
+htmlcov/
+test-results/
+.pytest_cache/
 data/
 neo4j_data/
 *.egg-info/

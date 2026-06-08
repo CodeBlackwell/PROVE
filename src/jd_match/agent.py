@@ -29,8 +29,10 @@ class JDMatchAgent:
         matched = sum(1 for r in results if r.confidence in ("Strong", "Partial"))
         pct = (matched / len(results) * 100) if results else 0.0
         details = "\n".join(f"- {r.requirement}: {r.confidence}" for r in results)
-        response = self.chat.chat([
-            {"role": "user", "content": SUMMARY_PROMPT.format(pct=pct, details=details)},
-        ])
+        response = self.chat.chat(
+            [
+                {"role": "user", "content": SUMMARY_PROMPT.format(pct=pct, details=details)},
+            ]
+        )
         summary = response.choices[0].message.content.strip()
         return MatchReport(requirements=results, match_percentage=pct, summary=summary)

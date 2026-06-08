@@ -11,10 +11,10 @@ accumulated cost, latency, and call counts.
 import json
 import logging
 import os
-import time
+import threading
 import uuid
 from contextvars import ContextVar
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -35,7 +35,9 @@ COST_PER_M_TOKENS: dict[str, dict[str, float]] = {
 
 def estimate_cost(model: str, input_tokens: int, output_tokens: int = 0) -> float:
     rates = COST_PER_M_TOKENS.get(model, {})
-    return (input_tokens * rates.get("input", 0) + output_tokens * rates.get("output", 0)) / 1_000_000
+    return (
+        input_tokens * rates.get("input", 0) + output_tokens * rates.get("output", 0)
+    ) / 1_000_000
 
 
 # ---------------------------------------------------------------------------
@@ -47,19 +49,21 @@ _session: ContextVar[dict | None] = ContextVar("audit_session", default=None)
 def start_session(query: str = "", source: str = "api") -> str:
     """Start a new audit session. Returns session_id."""
     sid = uuid.uuid4().hex[:12]
-    _session.set({
-        "session_id": sid,
-        "query": query,
-        "source": source,
-        "started_at": datetime.now(timezone.utc).isoformat(),
-        "llm_calls": 0,
-        "embed_calls": 0,
-        "tool_calls": 0,
-        "total_input_tokens": 0,
-        "total_output_tokens": 0,
-        "total_cost_usd": 0.0,
-        "total_latency_ms": 0,
-    })
+    _session.set(
+        {
+            "session_id": sid,
+            "query": query,
+            "source": source,
+            "started_at": datetime.now(UTC).isoformat(),
+            "llm_calls": 0,
+            "embed_calls": 0,
+            "tool_calls": 0,
+            "total_input_tokens": 0,
+            "total_output_tokens": 0,
+            "total_cost_usd": 0.0,
+            "total_latency_ms": 0,
+        }
+    )
     _log.info("session.start", session_id=sid, query=query, source=source)
     return sid
 
@@ -69,7 +73,7 @@ def end_session() -> dict:
     s = _session.get()
     if not s:
         return {}
-    s["ended_at"] = datetime.now(timezone.utc).isoformat()
+    s["ended_at"] = datetime.now(UTC).isoformat()
     _log.info("session.end", **s)
     _session.set(None)
     return s
@@ -86,8 +90,32 @@ def _accum(key: str, value):
 
 
 # ---------------------------------------------------------------------------
+# Ingest cost accumulator (thread-safe; survives ThreadPoolExecutor workers
+# that a ContextVar session would not reach). Phases read it via pop.
+# ---------------------------------------------------------------------------
+_ingest_lock = threading.Lock()
+_ingest_cost = {"cost_usd": 0.0, "input_tokens": 0, "output_tokens": 0}
+
+
+def _accum_ingest(cost: float, input_tokens: int, output_tokens: int):
+    with _ingest_lock:
+        _ingest_cost["cost_usd"] += cost
+        _ingest_cost["input_tokens"] += input_tokens
+        _ingest_cost["output_tokens"] += output_tokens
+
+
+def pop_ingest_cost() -> dict:
+    """Return accumulated ingest cost since the last pop, then reset to zero."""
+    with _ingest_lock:
+        snap = dict(_ingest_cost)
+        _ingest_cost.update(cost_usd=0.0, input_tokens=0, output_tokens=0)
+        return snap
+
+
+# ---------------------------------------------------------------------------
 # Structured log helpers
 # ---------------------------------------------------------------------------
+
 
 class _StructuredLogger:
     """Thin wrapper that attaches structured fields to log records."""
@@ -102,59 +130,99 @@ class _StructuredLogger:
             record_extra["session_id"] = s["session_id"]
         self._logger.log(level, event, extra={"structured": record_extra})
 
-    def debug(self, event: str, **kw):   self._log(logging.DEBUG, event, **kw)
-    def info(self, event: str, **kw):    self._log(logging.INFO, event, **kw)
-    def warning(self, event: str, **kw): self._log(logging.WARNING, event, **kw)
-    def error(self, event: str, **kw):   self._log(logging.ERROR, event, **kw)
+    def debug(self, event: str, **kw):
+        self._log(logging.DEBUG, event, **kw)
+
+    def info(self, event: str, **kw):
+        self._log(logging.INFO, event, **kw)
+
+    def warning(self, event: str, **kw):
+        self._log(logging.WARNING, event, **kw)
+
+    def error(self, event: str, **kw):
+        self._log(logging.ERROR, event, **kw)
 
 
 _log = _StructuredLogger("prove")
 
 
 # Expose module-level convenience functions
-def debug(event, **kw):   _log.debug(event, **kw)
-def info(event, **kw):    _log.info(event, **kw)
-def warning(event, **kw): _log.warning(event, **kw)
-def error(event, **kw):   _log.error(event, **kw)
+def debug(event, **kw):
+    _log.debug(event, **kw)
+
+
+def info(event, **kw):
+    _log.info(event, **kw)
+
+
+def warning(event, **kw):
+    _log.warning(event, **kw)
+
+
+def error(event, **kw):
+    _log.error(event, **kw)
 
 
 # ---------------------------------------------------------------------------
 # Domain-specific log functions
 # ---------------------------------------------------------------------------
 
-def log_llm_call(*, provider: str, model: str, input_tokens: int,
-                 output_tokens: int, latency_ms: int, purpose: str,
-                 tool_calls: int = 0, **extra):
+
+def log_llm_call(
+    *,
+    provider: str,
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    latency_ms: int,
+    purpose: str,
+    tool_calls: int = 0,
+    **extra,
+):
     cost = estimate_cost(model, input_tokens, output_tokens)
     _accum("llm_calls", 1)
     _accum("total_input_tokens", input_tokens)
     _accum("total_output_tokens", output_tokens)
     _accum("total_cost_usd", cost)
     _accum("total_latency_ms", latency_ms)
-    _log.info("llm.call", provider=provider, model=model,
-              input_tokens=input_tokens, output_tokens=output_tokens,
-              latency_ms=latency_ms, cost_usd=round(cost, 6),
-              purpose=purpose, tool_calls=tool_calls, **extra)
+    _accum_ingest(cost, input_tokens, output_tokens)
+    _log.info(
+        "llm.call",
+        provider=provider,
+        model=model,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        latency_ms=latency_ms,
+        cost_usd=round(cost, 6),
+        purpose=purpose,
+        tool_calls=tool_calls,
+        **extra,
+    )
 
 
 def log_llm_retry(*, provider: str, attempt: int, wait_s: int, reason: str = "rate_limit"):
-    _log.warning("llm.retry", provider=provider, attempt=attempt,
-                 wait_s=wait_s, reason=reason)
+    _log.warning("llm.retry", provider=provider, attempt=attempt, wait_s=wait_s, reason=reason)
 
 
 def log_llm_error(*, provider: str, error: str, purpose: str = ""):
     _log.error("llm.error", provider=provider, error=error, purpose=purpose)
 
 
-def log_embed_call(*, provider: str, model: str, batch_size: int,
-                   latency_ms: int, **extra):
+def log_embed_call(*, provider: str, model: str, batch_size: int, latency_ms: int, **extra):
     cost = estimate_cost(model, batch_size * 500)  # rough: ~500 tokens/snippet
     _accum("embed_calls", 1)
     _accum("total_cost_usd", cost)
     _accum("total_latency_ms", latency_ms)
-    _log.info("embed.call", provider=provider, model=model,
-              batch_size=batch_size, latency_ms=latency_ms,
-              cost_usd=round(cost, 6), **extra)
+    _accum_ingest(cost, batch_size * 500, 0)
+    _log.info(
+        "embed.call",
+        provider=provider,
+        model=model,
+        batch_size=batch_size,
+        latency_ms=latency_ms,
+        cost_usd=round(cost, 6),
+        **extra,
+    )
 
 
 def log_embed_retry(*, provider: str, attempt: int, wait_s: int):
@@ -164,29 +232,38 @@ def log_embed_retry(*, provider: str, attempt: int, wait_s: int):
 def log_tool_call(*, tool_name: str, args: dict, result_size: int, latency_ms: int):
     _accum("tool_calls", 1)
     _accum("total_latency_ms", latency_ms)
-    _log.info("tool.call", tool_name=tool_name, args=args,
-              result_size=result_size, latency_ms=latency_ms)
+    _log.info(
+        "tool.call", tool_name=tool_name, args=args, result_size=result_size, latency_ms=latency_ms
+    )
 
 
 def log_tool_result(*, tool_name: str, result_count: int, sample_keys: list[str] | None = None):
-    _log.debug("tool.result", tool_name=tool_name, result_count=result_count,
-               sample_keys=sample_keys or [])
+    _log.debug(
+        "tool.result", tool_name=tool_name, result_count=result_count, sample_keys=sample_keys or []
+    )
 
 
 def log_curation(*, kept: int, dropped: int, total: int, fallback: bool = False):
-    _log.info("curation.decision", kept=kept, dropped=dropped,
-              total=total, fallback=fallback)
+    _log.info("curation.decision", kept=kept, dropped=dropped, total=total, fallback=fallback)
 
 
 def log_evidence(*, collected: int, unique_repos: int, unique_skills: int):
-    _log.info("evidence.collected", collected=collected,
-              unique_repos=unique_repos, unique_skills=unique_skills)
+    _log.info(
+        "evidence.collected",
+        collected=collected,
+        unique_repos=unique_repos,
+        unique_skills=unique_skills,
+    )
 
 
 def log_vector_search(*, query_preview: str, top_score: float, result_count: int, min_score: float):
-    _log.debug("vector.search", query_preview=query_preview[:80],
-               top_score=round(top_score, 4), result_count=result_count,
-               min_score=min_score)
+    _log.debug(
+        "vector.search",
+        query_preview=query_preview[:80],
+        top_score=round(top_score, 4),
+        result_count=result_count,
+        min_score=min_score,
+    )
 
 
 def log_ingestion_step(*, step: str, detail: str = "", **extra):
@@ -194,13 +271,27 @@ def log_ingestion_step(*, step: str, detail: str = "", **extra):
 
 
 def log_context_gen(*, batch_size: int, success: int, failed: int, latency_ms: int):
-    _log.info("context.generate", batch_size=batch_size, success=success,
-              failed=failed, latency_ms=latency_ms)
+    _log.info(
+        "context.generate",
+        batch_size=batch_size,
+        success=success,
+        failed=failed,
+        latency_ms=latency_ms,
+    )
 
 
-def log_request(*, method: str, path: str, query: str = "", status: int = 200, latency_ms: int = 0, **extra):
-    _log.info("http.request", method=method, path=path, query=query,
-              status=status, latency_ms=latency_ms, **extra)
+def log_request(
+    *, method: str, path: str, query: str = "", status: int = 200, latency_ms: int = 0, **extra
+):
+    _log.info(
+        "http.request",
+        method=method,
+        path=path,
+        query=query,
+        status=status,
+        latency_ms=latency_ms,
+        **extra,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -208,10 +299,10 @@ def log_request(*, method: str, path: str, query: str = "", status: int = 200, l
 # ---------------------------------------------------------------------------
 
 _COLORS = {
-    "DEBUG": "\033[36m",     # cyan
-    "INFO": "\033[32m",      # green
-    "WARNING": "\033[33m",   # yellow
-    "ERROR": "\033[31m",     # red
+    "DEBUG": "\033[36m",  # cyan
+    "INFO": "\033[32m",  # green
+    "WARNING": "\033[33m",  # yellow
+    "ERROR": "\033[31m",  # red
     "RESET": "\033[0m",
 }
 
@@ -246,7 +337,7 @@ class JSONFormatter(logging.Formatter):
     def format(self, record):
         extra = getattr(record, "structured", {})
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "event": extra.get("event", record.getMessage()),
             **extra.get("fields", {}),
@@ -261,6 +352,7 @@ class JSONFormatter(logging.Formatter):
 # SQLite log handler (attached lazily after Database is created)
 # ---------------------------------------------------------------------------
 
+
 class SQLiteHandler(logging.Handler):
     """Write structured log records to SQLite."""
 
@@ -272,7 +364,7 @@ class SQLiteHandler(logging.Handler):
         try:
             extra = getattr(record, "structured", {})
             self.db.save_log(
-                timestamp=datetime.now(timezone.utc).isoformat(),
+                timestamp=datetime.now(UTC).isoformat(),
                 level=record.levelname,
                 event=extra.get("event", record.getMessage()),
                 session_id=extra.get("session_id"),

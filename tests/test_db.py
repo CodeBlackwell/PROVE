@@ -87,12 +87,13 @@ def test_list_sessions_pagination(db):
 
 
 def test_save_and_query_logs(db):
-    db.save_log("2026-01-01T00:00:00Z", "INFO", "test.event",
-                session_id="s1", fields={"key": "value"})
-    db.save_log("2026-01-01T00:00:01Z", "ERROR", "test.error",
-                session_id="s1", fields={"error": "boom"})
-    db.save_log("2026-01-01T00:00:02Z", "INFO", "other.event",
-                session_id="s2", fields={})
+    db.save_log(
+        "2026-01-01T00:00:00Z", "INFO", "test.event", session_id="s1", fields={"key": "value"}
+    )
+    db.save_log(
+        "2026-01-01T00:00:01Z", "ERROR", "test.error", session_id="s1", fields={"error": "boom"}
+    )
+    db.save_log("2026-01-01T00:00:02Z", "INFO", "other.event", session_id="s2", fields={})
 
     # All logs
     all_logs = db.query_logs()
@@ -126,12 +127,14 @@ def test_message_metadata(db):
     conn = db._get_conn()
     row = conn.execute("SELECT metadata FROM conversations WHERE session_id = 's1'").fetchone()
     import json
+
     assert json.loads(row["metadata"]) == {"model": "haiku", "tokens": 42}
 
 
 # ------------------------------------------------------------------
 # Rate limiting
 # ------------------------------------------------------------------
+
 
 def test_rate_limit_allows_within_window(db):
     allowed, remaining = db.check_rate_limit("v1", "chat", max_requests=3, window_seconds=3600)

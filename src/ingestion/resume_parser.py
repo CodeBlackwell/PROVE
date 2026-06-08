@@ -13,19 +13,22 @@ RESUME_PROMPT = (
 def _read_file(file_path: Path) -> str:
     if file_path.suffix.lower() == ".pdf":
         from pypdf import PdfReader
+
         reader = PdfReader(file_path)
         return "\n".join(page.extract_text() or "" for page in reader.pages)
     return file_path.read_text(encoding="utf-8", errors="replace")
 
 
-def parse_resume(file_path, neo4j_client, chat_client):
+def parse_resume(file_path, neo4j_client, chat_client, engineer_name=None):
     path = Path(file_path)
     text = _read_file(path)
 
-    response = chat_client.chat([
-        {"role": "system", "content": RESUME_PROMPT},
-        {"role": "user", "content": text},
-    ])
+    response = chat_client.chat(
+        [
+            {"role": "system", "content": RESUME_PROMPT},
+            {"role": "user", "content": text},
+        ]
+    )
     raw = response.choices[0].message.content.strip()
 
     # Strip <think> blocks from reasoning models
@@ -54,7 +57,7 @@ def parse_resume(file_path, neo4j_client, chat_client):
         raise ValueError(f"Could not parse JSON from resume response: {raw[:200]}")
 
     with neo4j_client.driver.session() as session:
-        name = data["name"]
+        name = engineer_name or data["name"]  # pin to existing identity on re-parse
         session.run("MERGE (e:Engineer {name: $name})", name=name)
 
         for role in data.get("roles", []):
@@ -65,8 +68,10 @@ def parse_resume(file_path, neo4j_client, chat_client):
                 "MERGE (e)-[:HELD]->(r) "
                 "MERGE (r)-[:AT]->(c) "
                 "SET r.dates = $dates",
-                name=name, title=role["title"],
-                company=role["company"], dates=role.get("dates", ""),
+                name=name,
+                title=role["title"],
+                company=role["company"],
+                dates=role.get("dates", ""),
             )
 
         for skill in data.get("skills", []):
@@ -74,7 +79,8 @@ def parse_resume(file_path, neo4j_client, chat_client):
                 "MATCH (e:Engineer {name: $name}) "
                 "MERGE (s:Skill {name: $skill}) "
                 "MERGE (e)-[:CLAIMS]->(s)",
-                name=name, skill=skill,
+                name=name,
+                skill=skill,
             )
 
     return name

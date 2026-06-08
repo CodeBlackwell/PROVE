@@ -11,7 +11,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from src.core import logger
-from src.core.claude_chat_client import ClaudeChatClient
+from src.core.claude_chat_client import ClaudeChatClient, InsufficientCreditsError
 
 # 10 snippets per LLM call — balances throughput against prompt size.
 CONTEXT_BATCH_SIZE = 10
@@ -45,9 +45,9 @@ No markdown fences, no explanation.\
 """
 
 
-def generate_contexts(snippets: list[dict], chat_client,
-                      skills_list: str = "",
-                      concurrency: int | None = None) -> list[str]:
+def generate_contexts(
+    snippets: list[dict], chat_client, skills_list: str = "", concurrency: int | None = None
+) -> list[str]:
     """Generate contextual descriptions for a list of snippets.
 
     Each snippet dict should have: name, file_path, content, language, repo, skills.
@@ -56,8 +56,9 @@ def generate_contexts(snippets: list[dict], chat_client,
     Concurrency is auto-detected from the chat_client type if not provided.
     """
     if concurrency is None:
-        concurrency = (CONCURRENCY_ANTHROPIC if isinstance(chat_client, ClaudeChatClient)
-                       else CONCURRENCY_NIM)
+        concurrency = (
+            CONCURRENCY_ANTHROPIC if isinstance(chat_client, ClaudeChatClient) else CONCURRENCY_NIM
+        )
 
     # Build all batches
     batches = []
@@ -83,6 +84,8 @@ def generate_contexts(snippets: list[dict], chat_client,
                 offset = futures[future]
                 try:
                     batch_descs = future.result()
+                except InsufficientCreditsError:
+                    raise
                 except Exception as e:
                     logger.error("context.batch_failed", error=str(e))
                     batch_descs = [""] * CONTEXT_BATCH_SIZE
@@ -93,8 +96,7 @@ def generate_contexts(snippets: list[dict], chat_client,
     return descriptions
 
 
-def _generate_batch(snippets: list[dict], chat_client,
-                    skills_list: str) -> list[str]:
+def _generate_batch(snippets: list[dict], chat_client, skills_list: str) -> list[str]:
     parts = []
     for idx, s in enumerate(snippets):
         preview = "\n".join(s.get("content", "").split("\n")[:30])
@@ -110,10 +112,13 @@ def _generate_batch(snippets: list[dict], chat_client,
 
     try:
         t0 = time.perf_counter()
-        response = chat_client.chat([
-            {"role": "system", "content": system},
-            {"role": "user", "content": user_prompt},
-        ], purpose="context_generation")
+        response = chat_client.chat(
+            [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user_prompt},
+            ],
+            purpose="context_generation",
+        )
         raw = response.choices[0].message.content
         if "```" in raw:
             raw = raw.split("```")[1]
@@ -123,10 +128,15 @@ def _generate_batch(snippets: list[dict], chat_client,
         descs = [parsed.get(str(i), "") for i in range(len(snippets))]
         latency = int((time.perf_counter() - t0) * 1000)
         success = sum(1 for d in descs if d)
-        logger.log_context_gen(batch_size=len(snippets), success=success,
-                               failed=len(snippets) - success, latency_ms=latency)
+        logger.log_context_gen(
+            batch_size=len(snippets),
+            success=success,
+            failed=len(snippets) - success,
+            latency_ms=latency,
+        )
         return descs
+    except InsufficientCreditsError:
+        raise
     except (json.JSONDecodeError, Exception) as e:
-        logger.error("context.generation_failed", error=str(e),
-                      batch_size=len(snippets))
+        logger.error("context.generation_failed", error=str(e), batch_size=len(snippets))
         return [""] * len(snippets)

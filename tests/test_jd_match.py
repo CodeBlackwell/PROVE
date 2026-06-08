@@ -1,9 +1,9 @@
 import json
 from unittest.mock import MagicMock
 
-from src.jd_match.parser import parse_requirements
-from src.jd_match.matcher import MatchResult, match_requirement
 from src.jd_match.agent import JDMatchAgent, MatchReport
+from src.jd_match.matcher import MatchResult, match_requirement
+from src.jd_match.parser import parse_requirements
 
 
 def _mock_chat(chat_content="[]"):
@@ -52,9 +52,33 @@ def test_parse_requirements_markdown_fenced():
 
 def test_match_requirement():
     vector_hits = [
-        {"props": {"file_path": "src/a.py", "start_line": 1, "end_line": 10, "content": "async def fetch():"}, "score": 0.9},
-        {"props": {"file_path": "src/b.py", "start_line": 5, "end_line": 15, "content": "async def process():"}, "score": 0.8},
-        {"props": {"file_path": "src/c.py", "start_line": 20, "end_line": 30, "content": "async def stream():"}, "score": 0.7},
+        {
+            "props": {
+                "file_path": "src/a.py",
+                "start_line": 1,
+                "end_line": 10,
+                "content": "async def fetch():",
+            },
+            "score": 0.9,
+        },
+        {
+            "props": {
+                "file_path": "src/b.py",
+                "start_line": 5,
+                "end_line": 15,
+                "content": "async def process():",
+            },
+            "score": 0.8,
+        },
+        {
+            "props": {
+                "file_path": "src/c.py",
+                "start_line": 20,
+                "end_line": 30,
+                "content": "async def stream():",
+            },
+            "score": 0.7,
+        },
     ]
     neo4j = _mock_neo4j(vector_results=vector_hits)
     embed = _mock_embed()
@@ -71,9 +95,19 @@ def test_match_requirement():
 
 
 def test_match_requirement_partial():
-    neo4j = _mock_neo4j(vector_results=[
-        {"props": {"file_path": "src/x.py", "start_line": 1, "end_line": 5, "content": "code"}, "score": 0.9},
-    ])
+    neo4j = _mock_neo4j(
+        vector_results=[
+            {
+                "props": {
+                    "file_path": "src/x.py",
+                    "start_line": 1,
+                    "end_line": 5,
+                    "content": "code",
+                },
+                "score": 0.9,
+            },
+        ]
+    )
     embed = _mock_embed()
 
     result = match_requirement("Go concurrency", neo4j, embed)
@@ -93,14 +127,28 @@ def test_match_requirement_none():
 def test_match_report():
     reqs_json = json.dumps(["Python", "Docker", "GraphQL"])
     vector_hits = [
-        {"props": {"file_path": f"src/{i}.py", "start_line": i, "end_line": i + 10, "content": f"code_{i}"}, "score": 0.9}
+        {
+            "props": {
+                "file_path": f"src/{i}.py",
+                "start_line": i,
+                "end_line": i + 10,
+                "content": f"code_{i}",
+            },
+            "score": 0.9,
+        }
         for i in range(3)
     ]
     neo4j = _mock_neo4j(vector_results=vector_hits)
 
     # First chat call returns parsed requirements, subsequent calls return summary
     responses = []
-    for content in [reqs_json, reqs_json, reqs_json, reqs_json, "The candidate matches 100% of requirements."]:
+    for content in [
+        reqs_json,
+        reqs_json,
+        reqs_json,
+        reqs_json,
+        "The candidate matches 100% of requirements.",
+    ]:
         r = MagicMock()
         r.choices = [MagicMock()]
         r.choices[0].message.content = content

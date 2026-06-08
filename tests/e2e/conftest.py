@@ -7,14 +7,23 @@ Start the dev server first: just dev
 
 import os
 import urllib.request
+
 import pytest
-from playwright.sync_api import sync_playwright, Browser, BrowserContext, Page
+from playwright.sync_api import Browser, BrowserContext, Page, sync_playwright
 
 # ---------------------------------------------------------------------------
 # Target URL — localhost by default for speed
 # ---------------------------------------------------------------------------
 
 BASE_URL = os.getenv("BASE_URL", "http://localhost:7860")
+
+
+def pytest_collection_modifyitems(items):
+    """Mark every test under tests/e2e as `e2e` so CI can deselect with -m 'not e2e'."""
+    for item in items:
+        if "tests/e2e/" in item.nodeid:
+            item.add_marker(pytest.mark.e2e)
+
 
 # ---------------------------------------------------------------------------
 # HTML cache — fetch once per URL, serve from memory via route interception
@@ -139,10 +148,7 @@ FIREFOX_MOBILE = {
     "device_scale_factor": 3,
     "is_mobile": False,
     "has_touch": True,
-    "user_agent": (
-        "Mozilla/5.0 (Android 14; Mobile; rv:121.0) "
-        "Gecko/121.0 Firefox/121.0"
-    ),
+    "user_agent": ("Mozilla/5.0 (Android 14; Mobile; rv:121.0) Gecko/121.0 Firefox/121.0"),
     "browser": "firefox",
 }
 
@@ -165,13 +171,24 @@ DESKTOP_CHROME = {
 # ---------------------------------------------------------------------------
 
 ALL_MOBILE_DEVICES = [
-    IPHONE_15, IPHONE_15_PRO_MAX, IPHONE_SE, IPAD_MINI,
-    PIXEL_7, GALAXY_S23, GALAXY_FOLD, FIREFOX_MOBILE,
+    IPHONE_15,
+    IPHONE_15_PRO_MAX,
+    IPHONE_SE,
+    IPAD_MINI,
+    PIXEL_7,
+    GALAXY_S23,
+    GALAXY_FOLD,
+    FIREFOX_MOBILE,
 ]
 
 PHONE_DEVICES = [
-    IPHONE_15, IPHONE_15_PRO_MAX, IPHONE_SE,
-    PIXEL_7, GALAXY_S23, GALAXY_FOLD, FIREFOX_MOBILE,
+    IPHONE_15,
+    IPHONE_15_PRO_MAX,
+    IPHONE_SE,
+    PIXEL_7,
+    GALAXY_S23,
+    GALAXY_FOLD,
+    FIREFOX_MOBILE,
 ]
 
 IOS_DEVICES = [IPHONE_15, IPHONE_15_PRO_MAX, IPHONE_SE, IPAD_MINI]
@@ -232,6 +249,7 @@ def _browser_teardown():
 # Core helpers
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def base_url() -> str:
     return BASE_URL
@@ -263,7 +281,10 @@ def make_page(device: dict, url: str, wait_for_load: bool = True) -> tuple[Brows
     # Route interception: serve main page HTML from memory
     if url == BASE_URL:
         html = _cached_html(url)
-        _fulfill = lambda route: route.fulfill(body=html, content_type="text/html")
+
+        def _fulfill(route):
+            return route.fulfill(body=html, content_type="text/html")
+
         page.route(url, _fulfill)
         page.route(url + "/", _fulfill)
     page.goto(url, wait_until="domcontentloaded")
@@ -295,6 +316,7 @@ def reset_page(page):
 # Class-scoped device fixtures — ONE page load per test class per device
 # ---------------------------------------------------------------------------
 
+
 def _make_class_fixture(device_config):
     """Factory: create a class-scoped fixture for a device.
     The page is loaded once and shared across all tests in the class.
@@ -322,6 +344,7 @@ desktop_shared = _make_class_fixture(DESKTOP_CHROME)
 # ---------------------------------------------------------------------------
 # Per-test fixtures (fresh page each time — for tests that mutate state)
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def iphone15_page(base_url):
@@ -358,6 +381,7 @@ def firefox_mobile_page(base_url):
 # ---------------------------------------------------------------------------
 # Parametrized class-scoped fixture — one page per device per test class
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="class")
 def shared_page(request):

@@ -7,10 +7,14 @@ to catch browser-specific rendering and behavior differences.
 
 import pytest
 from tests.e2e.conftest import (
-    IPHONE_15, PIXEL_7, FIREFOX_MOBILE, DESKTOP_CHROME,
-    make_page, make_context, device_id, BASE_URL,
+    BASE_URL,
+    FIREFOX_MOBILE,
+    IPHONE_15,
+    PIXEL_7,
+    device_id,
+    make_context,
+    make_page,
 )
-
 
 # All three browser engines with a phone device each
 BROWSER_MATRIX = [IPHONE_15, PIXEL_7, FIREFOX_MOBILE]
@@ -19,6 +23,7 @@ BROWSER_MATRIX = [IPHONE_15, PIXEL_7, FIREFOX_MOBILE]
 # ---------------------------------------------------------------------------
 # CSS rendering consistency
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("shared_page", BROWSER_MATRIX, ids=device_id, indirect=True)
 class TestCSSConsistency:
@@ -61,6 +66,7 @@ class TestCSSConsistency:
 # ---------------------------------------------------------------------------
 # JavaScript API compatibility
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("shared_page", BROWSER_MATRIX, ids=device_id, indirect=True)
 class TestJSCompatibility:
@@ -105,6 +111,7 @@ class TestJSCompatibility:
 # D3.js & Mermaid compatibility
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("shared_page", BROWSER_MATRIX, ids=device_id, indirect=True)
 class TestLibraryCompat:
     """External libraries must load across browsers."""
@@ -122,6 +129,7 @@ class TestLibraryCompat:
 # SSE streaming
 # ---------------------------------------------------------------------------
 
+
 class TestSSEStreaming:
     """Verify SSE streaming works across browser engines."""
 
@@ -130,7 +138,6 @@ class TestSSEStreaming:
         """Submit a question and verify SSE events are received."""
         ctx, page = make_page(device, BASE_URL)
         try:
-
             # Set up event tracking
             page.evaluate("""() => {
                 window.__sseEvents = [];
@@ -181,6 +188,7 @@ class TestSSEStreaming:
 # Touch events
 # ---------------------------------------------------------------------------
 
+
 class TestTouchEvents:
     """Verify touch interactions work correctly."""
 
@@ -206,9 +214,7 @@ class TestTouchEvents:
         try:
             page.locator("#canvas-toggle").tap()
             page.wait_for_timeout(500)
-            has_class = page.evaluate(
-                "document.body.classList.contains('canvas-mode')"
-            )
+            has_class = page.evaluate("document.body.classList.contains('canvas-mode')")
             assert has_class, f"Canvas mode should activate on tap ({device['name']})"
         finally:
             page.close()
@@ -218,6 +224,7 @@ class TestTouchEvents:
 # ---------------------------------------------------------------------------
 # Modal z-index stacking
 # ---------------------------------------------------------------------------
+
 
 class TestZIndexStacking:
     """Modals should appear above all other content."""
@@ -237,8 +244,9 @@ class TestZIndexStacking:
                     mainZ: parseInt(window.getComputedStyle(main).zIndex) || 0,
                 };
             }""")
-            assert result["modalZ"] > result["mainZ"], \
+            assert result["modalZ"] > result["mainZ"], (
                 f"Modal z-index ({result['modalZ']}) should be above main ({result['mainZ']})"
+            )
         finally:
             page.close()
             ctx.close()
@@ -263,6 +271,7 @@ class TestZIndexStacking:
 # Console errors
 # ---------------------------------------------------------------------------
 
+
 class TestConsoleErrors:
     """No JavaScript errors should appear in the console."""
 
@@ -280,8 +289,7 @@ class TestConsoleErrors:
                 timeout=15000,
             )
             page.wait_for_timeout(2000)  # Let scripts run
-            assert not errors, \
-                f"JS errors on {device['name']}: {errors}"
+            assert not errors, f"JS errors on {device['name']}: {errors}"
         finally:
             page.close()
             ctx.close()
@@ -314,8 +322,7 @@ class TestConsoleErrors:
             page.locator("#chat-input").fill("test")
             page.locator("#chat-input").fill("")
 
-            assert not errors, \
-                f"JS errors during interaction on {device['name']}: {errors}"
+            assert not errors, f"JS errors during interaction on {device['name']}: {errors}"
         finally:
             page.close()
             ctx.close()

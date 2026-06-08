@@ -7,14 +7,18 @@ reported user problems on iPhone 15.
 
 import pytest
 from tests.e2e.conftest import (
-    IPHONE_15, IPHONE_15_PRO_MAX, IPHONE_SE, IOS_DEVICES,
-    make_page, make_context, device_id, BASE_URL,
+    BASE_URL,
+    IOS_DEVICES,
+    IPHONE_15,
+    IPHONE_15_PRO_MAX,
+    device_id,
+    make_page,
 )
-
 
 # ---------------------------------------------------------------------------
 # Dynamic viewport units (dvh vs vh)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("shared_page", IOS_DEVICES, ids=device_id, indirect=True)
 class TestDynamicViewport:
@@ -34,8 +38,9 @@ class TestDynamicViewport:
             };
         }""")
         ratio = result["bodyHeight"] / result["innerHeight"]
-        assert ratio >= 0.95, \
+        assert ratio >= 0.95, (
             f"Body height ({result['bodyHeight']}) doesn't fill viewport ({result['innerHeight']})"
+        )
 
     def test_main_respects_viewport_height(self, shared_page):
         """Main element should not exceed viewport height."""
@@ -46,13 +51,15 @@ class TestDynamicViewport:
                 viewportH: window.innerHeight,
             };
         }""")
-        assert result["mainH"] <= result["viewportH"] + 5, \
+        assert result["mainH"] <= result["viewportH"] + 5, (
             f"Main ({result['mainH']}px) exceeds viewport ({result['viewportH']}px)"
+        )
 
 
 # ---------------------------------------------------------------------------
 # overflow:hidden body behavior on iOS
 # ---------------------------------------------------------------------------
+
 
 class TestBodyOverflow:
     """iOS Safari has quirks with overflow:hidden on body — content can still
@@ -67,8 +74,9 @@ class TestBodyOverflow:
             page.wait_for_timeout(300)
             scroll_after = page.evaluate("window.scrollY")
             # With overflow:hidden, body should not scroll
-            assert scroll_after == scroll_before, \
+            assert scroll_after == scroll_before, (
                 f"Body scrolled from {scroll_before} to {scroll_after} (overflow:hidden not working)"
+            )
         finally:
             page.close()
             ctx.close()
@@ -84,8 +92,9 @@ class TestBodyOverflow:
                 };
             }""")
             # Allow small tolerance for rounding
-            assert result["scrollH"] <= result["clientH"] + 10, \
+            assert result["scrollH"] <= result["clientH"] + 10, (
                 f"Content overflows: scrollHeight={result['scrollH']}, clientHeight={result['clientH']}"
+            )
         finally:
             page.close()
             ctx.close()
@@ -94,6 +103,7 @@ class TestBodyOverflow:
 # ---------------------------------------------------------------------------
 # position:fixed behavior with virtual keyboard
 # ---------------------------------------------------------------------------
+
 
 class TestFixedPositioning:
     """position:fixed elements can misbehave on iOS when the virtual keyboard opens."""
@@ -127,6 +137,7 @@ class TestFixedPositioning:
 # background-attachment: fixed (known iOS bug)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("shared_page", IOS_DEVICES, ids=device_id, indirect=True)
 class TestBackgroundFixed:
     """background-attachment:fixed is notoriously broken on iOS Safari.
@@ -155,13 +166,15 @@ class TestBackgroundFixed:
         bg_color = shared_page.evaluate("""
             window.getComputedStyle(document.body).backgroundColor
         """)
-        assert bg_color != "rgb(255, 255, 255)" and bg_color != "rgba(0, 0, 0, 0)", \
+        assert bg_color != "rgb(255, 255, 255)" and bg_color != "rgba(0, 0, 0, 0)", (
             f"Body appears blank (bg={bg_color})"
+        )
 
 
 # ---------------------------------------------------------------------------
 # -webkit-backdrop-filter
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("shared_page", IOS_DEVICES, ids=device_id, indirect=True)
 class TestWebkitBackdropFilter:
@@ -175,8 +188,9 @@ class TestWebkitBackdropFilter:
                 wbf: style.webkitBackdropFilter || '',
             };
         }""")
-        has_filter = (result["bf"] and result["bf"] != "none") or \
-                     (result["wbf"] and result["wbf"] != "none")
+        has_filter = (result["bf"] and result["bf"] != "none") or (
+            result["wbf"] and result["wbf"] != "none"
+        )
         assert has_filter, f"No backdrop-filter on hero: bf={result['bf']}, wbf={result['wbf']}"
 
     def test_chat_panel_has_webkit_backdrop_filter(self, shared_page):
@@ -187,14 +201,16 @@ class TestWebkitBackdropFilter:
                 wbf: style.webkitBackdropFilter || '',
             };
         }""")
-        has_filter = (result["bf"] and result["bf"] != "none") or \
-                     (result["wbf"] and result["wbf"] != "none")
+        has_filter = (result["bf"] and result["bf"] != "none") or (
+            result["wbf"] and result["wbf"] != "none"
+        )
         assert has_filter, "No backdrop-filter on chat panel"
 
 
 # ---------------------------------------------------------------------------
 # requestSubmit() support on WebKit
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("shared_page", IOS_DEVICES, ids=device_id, indirect=True)
 class TestRequestSubmit:
@@ -212,6 +228,7 @@ class TestRequestSubmit:
 # Safe area insets
 # ---------------------------------------------------------------------------
 
+
 class TestSafeAreaInsets:
     """iPhone 15 has a Dynamic Island and rounded corners that create
     safe area insets. Content should not be hidden behind them."""
@@ -224,8 +241,9 @@ class TestSafeAreaInsets:
             assert hero_box is not None
             # On iPhone 15 with Dynamic Island, top content should have some padding
             # The main element has padding: 0.75rem which provides some offset
-            assert hero_box["y"] >= 5, \
+            assert hero_box["y"] >= 5, (
                 f"Hero starts at y={hero_box['y']} — may be under the Dynamic Island"
+            )
         finally:
             page.close()
             ctx.close()
@@ -246,8 +264,9 @@ class TestSafeAreaInsets:
             }""")
             # Should have at least 20px margin from bottom edge
             margin_bottom = result["viewportH"] - result["bottom"]
-            assert margin_bottom >= 8, \
+            assert margin_bottom >= 8, (
                 f"Canvas toggle too close to bottom ({margin_bottom}px margin)"
+            )
         finally:
             page.close()
             ctx.close()
@@ -257,6 +276,7 @@ class TestSafeAreaInsets:
 # Input zoom prevention (comprehensive)
 # ---------------------------------------------------------------------------
 
+
 class TestInputZoom:
     """iOS Safari zooms the viewport when focusing an input with font-size < 16px.
     This is the #1 most common mobile UX bug."""
@@ -265,7 +285,6 @@ class TestInputZoom:
         """Every text input and textarea must have font-size >= 16px."""
         ctx, page = make_page(IPHONE_15, BASE_URL)
         try:
-
             # Open JD modal to expose textarea
             page.locator("#jd-btn").click()
             page.wait_for_timeout(500)
@@ -288,8 +307,7 @@ class TestInputZoom:
             }""")
 
             failures = [r for r in result if not r["ok"]]
-            assert not failures, \
-                f"Inputs with font-size < 16px (will cause iOS zoom): {failures}"
+            assert not failures, f"Inputs with font-size < 16px (will cause iOS zoom): {failures}"
         finally:
             page.close()
             ctx.close()
@@ -298,6 +316,7 @@ class TestInputZoom:
 # ---------------------------------------------------------------------------
 # Touch interaction specifics
 # ---------------------------------------------------------------------------
+
 
 class TestIOSTouchBehavior:
     """iOS-specific touch behavior edge cases."""
@@ -314,8 +333,9 @@ class TestIOSTouchBehavior:
                 # Either starters dismissed or JD modal opened
                 dismissed = page.locator(".starter-questions").count() == 0
                 modal_open = page.locator(".jd-modal--open").count() > 0
-                assert dismissed or modal_open, \
+                assert dismissed or modal_open, (
                     "Starter tap should either dismiss starters or open modal"
+                )
         finally:
             page.close()
             ctx.close()
@@ -329,8 +349,9 @@ class TestIOSTouchBehavior:
             page.locator(".hero").dblclick()
             page.wait_for_timeout(500)
             final_scale = page.evaluate("visualViewport?.scale || 1")
-            assert abs(final_scale - initial_scale) < 0.1, \
+            assert abs(final_scale - initial_scale) < 0.1, (
                 f"Double-tap caused zoom: {initial_scale} -> {final_scale}"
+            )
         finally:
             page.close()
             ctx.close()
@@ -339,6 +360,7 @@ class TestIOSTouchBehavior:
 # ---------------------------------------------------------------------------
 # Full page flow on iPhone 15
 # ---------------------------------------------------------------------------
+
 
 class TestiPhone15FullFlow:
     """End-to-end user journey on iPhone 15."""
@@ -355,7 +377,6 @@ class TestiPhone15FullFlow:
             assert starters.count() == 3, "Should have 3 starter buttons"
 
             # 3. Tap first starter
-            first_text = starters.first.text_content()
             starters.first.tap()
             page.wait_for_timeout(1000)
 
@@ -363,15 +384,17 @@ class TestiPhone15FullFlow:
             assert page.locator(".msg-user").count() > 0, "User message should appear"
 
             # 5. Hero fades
-            assert page.evaluate("document.body.classList.contains('hero-faded')"), \
+            assert page.evaluate("document.body.classList.contains('hero-faded')"), (
                 "Hero should fade"
+            )
 
             # 6. Wait for response
             page.wait_for_selector(".msg-assistant:not(.loading)", timeout=30000)
 
             # 7. Input re-enabled
-            assert not page.evaluate("document.getElementById('chat-input').disabled"), \
+            assert not page.evaluate("document.getElementById('chat-input').disabled"), (
                 "Input should be re-enabled"
+            )
 
             # 8. No JS errors
             # (checked separately in test_cross_browser.py)
@@ -384,7 +407,6 @@ class TestiPhone15FullFlow:
         """Open JD modal -> paste text -> verify analyze enabled."""
         ctx, page = make_page(IPHONE_15, BASE_URL)
         try:
-
             # 1. Tap JD button
             page.locator("#jd-btn").tap()
             page.wait_for_timeout(500)
@@ -393,8 +415,9 @@ class TestiPhone15FullFlow:
             # 2. Verify elements
             assert page.locator("#jd-text").is_visible(), "Textarea should be visible"
             assert page.locator("#jd-drop").is_visible(), "Drop zone should be visible"
-            assert page.evaluate("document.getElementById('jd-analyze').disabled"), \
+            assert page.evaluate("document.getElementById('jd-analyze').disabled"), (
                 "Analyze should be disabled"
+            )
 
             # 3. Paste text
             page.locator("#jd-text").fill(
@@ -403,8 +426,9 @@ class TestiPhone15FullFlow:
             )
 
             # 4. Analyze enabled
-            assert not page.evaluate("document.getElementById('jd-analyze').disabled"), \
+            assert not page.evaluate("document.getElementById('jd-analyze').disabled"), (
                 "Analyze should be enabled after text input"
+            )
 
             # 5. Close modal
             page.keyboard.press("Escape")
@@ -419,11 +443,11 @@ class TestiPhone15FullFlow:
         """Toggle canvas mode on and off on iPhone 15."""
         ctx, page = make_page(IPHONE_15, BASE_URL)
         try:
-
             # Toggle on
             page.locator("#canvas-toggle").tap()
-            assert page.evaluate("document.body.classList.contains('canvas-mode')"), \
+            assert page.evaluate("document.body.classList.contains('canvas-mode')"), (
                 "Canvas mode should be active"
+            )
 
             # Wait for CSS transition to complete (headless WebKit runs transitions slowly)
             page.wait_for_function(
@@ -437,8 +461,9 @@ class TestiPhone15FullFlow:
 
             # Toggle off
             page.locator("#canvas-toggle").tap()
-            assert not page.evaluate("document.body.classList.contains('canvas-mode')"), \
+            assert not page.evaluate("document.body.classList.contains('canvas-mode')"), (
                 "Canvas mode should be off"
+            )
 
             # Wait for content to return
             page.wait_for_function(
@@ -459,6 +484,7 @@ class TestiPhone15FullFlow:
 # iPhone 15 Pro Max (larger screen variant)
 # ---------------------------------------------------------------------------
 
+
 class TestiPhone15ProMax:
     """Verify the larger iPhone 15 Pro Max doesn't have different issues."""
 
@@ -467,7 +493,6 @@ class TestiPhone15ProMax:
         ctx15, page15 = make_page(IPHONE_15, BASE_URL)
         ctxpm, pagepm = make_page(IPHONE_15_PRO_MAX, BASE_URL)
         try:
-
             # Both should have column layout
             dir15 = page15.evaluate(
                 "window.getComputedStyle(document.querySelector('main')).flexDirection"
@@ -496,6 +521,7 @@ class TestiPhone15ProMax:
 # ---------------------------------------------------------------------------
 # Screenshot comparison helper (visual regression)
 # ---------------------------------------------------------------------------
+
 
 class TestVisualRegression:
     """Capture screenshots for manual visual comparison.

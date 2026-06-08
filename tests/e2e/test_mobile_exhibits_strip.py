@@ -6,11 +6,19 @@ after hero-faded, bottom sheet open/close/dismiss, desktop hidden.
 """
 
 import os
+
 import pytest
 from tests.e2e.conftest import (
-    PHONE_DEVICES, ALL_MOBILE_DEVICES, CROSS_BROWSER_DEVICES,
-    IPHONE_15, IPHONE_SE, PIXEL_7, IPAD_MINI, DESKTOP_CHROME,
-    make_page, device_id, BASE_URL,
+    BASE_URL,
+    CROSS_BROWSER_DEVICES,
+    DESKTOP_CHROME,
+    IPAD_MINI,
+    IPHONE_15,
+    IPHONE_SE,
+    PHONE_DEVICES,
+    PIXEL_7,
+    device_id,
+    make_page,
 )
 
 SCREENSHOTS = os.path.join(os.path.dirname(__file__), "screenshots")
@@ -28,6 +36,7 @@ def _wait_for_strip(page, timeout=5000):
 # ---------------------------------------------------------------------------
 # Strip visibility
 # ---------------------------------------------------------------------------
+
 
 class TestStripVisibility:
     """Strip should be visible on mobile, hidden on desktop."""
@@ -74,6 +83,7 @@ class TestStripVisibility:
 # Tile rendering
 # ---------------------------------------------------------------------------
 
+
 class TestTileRendering:
     """Tiles should have SVG rings and name labels."""
 
@@ -88,8 +98,9 @@ class TestTileRendering:
                 return { tiles: tiles.length, svgs: svgCount };
             }""")
             assert result["tiles"] > 0, "Should have at least one tile"
-            assert result["svgs"] == result["tiles"], \
+            assert result["svgs"] == result["tiles"], (
                 f"Each tile needs an SVG ring: {result['svgs']} svgs for {result['tiles']} tiles"
+            )
         finally:
             page.close()
             ctx.close()
@@ -122,8 +133,9 @@ class TestTileRendering:
                     clientWidth: strip.clientWidth,
                 };
             }""")
-            assert result["scrollWidth"] >= result["clientWidth"], \
+            assert result["scrollWidth"] >= result["clientWidth"], (
                 "Strip should be at least as wide as its container (scrollable if overflows)"
+            )
         finally:
             page.close()
             ctx.close()
@@ -132,6 +144,7 @@ class TestTileRendering:
 # ---------------------------------------------------------------------------
 # Compact state after hero-faded
 # ---------------------------------------------------------------------------
+
 
 class TestCompactState:
     """Strip should shrink when hero-faded class is added."""
@@ -147,8 +160,7 @@ class TestCompactState:
             compact_w = page.evaluate("""
                 document.querySelector('.hero-strip__tile')?.getBoundingClientRect().width || 0
             """)
-            assert compact_w <= 48, \
-                f"Tile should be compact (<=48px), got {compact_w}"
+            assert compact_w <= 48, f"Tile should be compact (<=48px), got {compact_w}"
         finally:
             page.close()
             ctx.close()
@@ -166,8 +178,9 @@ class TestCompactState:
             compact_w = page.evaluate("""
                 document.querySelector('.hero-strip__tile')?.getBoundingClientRect().width || 0
             """)
-            assert compact_w < initial_w, \
+            assert compact_w < initial_w, (
                 f"Tablet tile should shrink: initial={initial_w}, compact={compact_w}"
+            )
         finally:
             page.close()
             ctx.close()
@@ -194,6 +207,7 @@ class TestCompactState:
 # Bottom sheet
 # ---------------------------------------------------------------------------
 
+
 class TestBottomSheet:
     """Tapping a tile should open a bottom sheet with repo detail."""
 
@@ -204,9 +218,7 @@ class TestBottomSheet:
             _wait_for_strip(page)
             page.locator(".hero-strip__tile").first.click()
             page.wait_for_timeout(500)
-            is_open = page.evaluate(
-                "document.querySelector('.repo-sheet--open') !== null"
-            )
+            is_open = page.evaluate("document.querySelector('.repo-sheet--open') !== null")
             assert is_open, "Bottom sheet should open on tile tap"
         finally:
             page.close()
@@ -263,9 +275,7 @@ class TestBottomSheet:
             page.wait_for_timeout(500)
             page.locator(".repo-sheet__backdrop").click(position={"x": 5, "y": 5})
             page.wait_for_timeout(500)
-            is_open = page.evaluate(
-                "document.querySelector('.repo-sheet--open') !== null"
-            )
+            is_open = page.evaluate("document.querySelector('.repo-sheet--open') !== null")
             assert not is_open, "Sheet should close on backdrop click"
         finally:
             page.close()
@@ -280,9 +290,7 @@ class TestBottomSheet:
             page.wait_for_timeout(500)
             page.keyboard.press("Escape")
             page.wait_for_timeout(500)
-            is_open = page.evaluate(
-                "document.querySelector('.repo-sheet--open') !== null"
-            )
+            is_open = page.evaluate("document.querySelector('.repo-sheet--open') !== null")
             assert not is_open, "Sheet should close on Escape"
         finally:
             page.close()
@@ -292,6 +300,7 @@ class TestBottomSheet:
 # ---------------------------------------------------------------------------
 # Screenshots — for visual verification
 # ---------------------------------------------------------------------------
+
 
 class TestScreenshots:
     """Capture screenshots at key states for visual review."""

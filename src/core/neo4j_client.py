@@ -10,7 +10,9 @@ class Neo4jClient:
     def __init__(self, uri: str, user: str, password: str, embed_provider: str = "nim"):
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
         if embed_provider not in EMBED_PROVIDERS:
-            raise ValueError(f"embed_provider must be one of {EMBED_PROVIDERS}, got '{embed_provider}'")
+            raise ValueError(
+                f"embed_provider must be one of {EMBED_PROVIDERS}, got '{embed_provider}'"
+            )
         self.embed_provider = embed_provider
         self.embed_property = f"embedding_{embed_provider}"
         self.vector_index = f"code_embedding_{embed_provider}"
@@ -41,14 +43,16 @@ class Neo4jClient:
                         "MERGE (c:Category {name: $cat}) "
                         "WITH c MATCH (d:Domain {name: $dom}) "
                         "MERGE (d)-[:CONTAINS]->(c)",
-                        cat=cat_name, dom=domain_name,
+                        cat=cat_name,
+                        dom=domain_name,
                     )
                     for skill_name in skills:
                         session.run(
                             "MERGE (s:Skill {name: $skill}) "
                             "WITH s MATCH (c:Category {name: $cat}) "
                             "MERGE (c)-[:CONTAINS]->(s)",
-                            skill=skill_name, cat=cat_name,
+                            skill=skill_name,
+                            cat=cat_name,
                         )
 
     def compute_repo_rollups(self, repo_name: str):
@@ -104,10 +108,17 @@ class Neo4jClient:
             "ORDER BY adjusted_score DESC LIMIT $top_k"
         )
         with self.driver.session() as session:
-            result = session.run(query, embedding=embedding, top_k=top_k,
-                                 fetch_k=top_k + 5)
-            return [{"props": r["props"], "score": r["score"], "repo": r["repo"],
-                     "private": bool(r["private"]), "skills": r["skills"]} for r in result]
+            result = session.run(query, embedding=embedding, top_k=top_k, fetch_k=top_k + 5)
+            return [
+                {
+                    "props": r["props"],
+                    "score": r["score"],
+                    "repo": r["repo"],
+                    "private": bool(r["private"]),
+                    "skills": r["skills"],
+                }
+                for r in result
+            ]
 
     def get_skill_evidence(self, skill_name: str) -> list[dict]:
         query = (
@@ -122,10 +133,14 @@ class Neo4jClient:
         with self.driver.session() as session:
             result = session.run(query, name=skill_name)
             return [
-                {**r["props"], "first_seen": str(r["first_seen"]) if r["first_seen"] else None,
-                 "last_seen": str(r["last_seen"]) if r["last_seen"] else None,
-                 "proficiency": r["proficiency"], "repo": r["repo"],
-                 "private": bool(r["private"])}
+                {
+                    **r["props"],
+                    "first_seen": str(r["first_seen"]) if r["first_seen"] else None,
+                    "last_seen": str(r["last_seen"]) if r["last_seen"] else None,
+                    "proficiency": r["proficiency"],
+                    "repo": r["repo"],
+                    "private": bool(r["private"]),
+                }
                 for r in result
             ]
 

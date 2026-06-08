@@ -1,8 +1,6 @@
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 from src.ingestion.code_parser import CodeChunk, parse_file
 
@@ -10,6 +8,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 # --- US-010: Tree-sitter code parser ---
+
 
 def test_parse_python_file():
     chunks = parse_file(FIXTURES / "sample.py")
@@ -43,6 +42,7 @@ def test_fallback_parse(tmp_path):
 
 # --- US-011: Neo4j graph builder ---
 
+
 def test_build_graph(tmp_path):
     from src.ingestion.graph_builder import build_graph
 
@@ -67,7 +67,7 @@ def test_build_graph(tmp_path):
     mock_chat = MagicMock()
     mock_chat_response = MagicMock()
     mock_chat_response.choices = [MagicMock()]
-    mock_chat_response.choices[0].message.content = '{}'
+    mock_chat_response.choices[0].message.content = "{}"
     mock_chat.chat.return_value = mock_chat_response
 
     build_graph(tmp_path, mock_neo4j, mock_embed, mock_chat)
@@ -77,6 +77,7 @@ def test_build_graph(tmp_path):
 
 
 # --- US-012: Skill extraction ---
+
 
 def test_extract_skills():
     from src.ingestion.skill_extractor import extract_skills
@@ -103,6 +104,7 @@ def test_extract_skills():
 
 
 # --- US-013: Resume parser ---
+
 
 def test_parse_resume():
     from src.ingestion.resume_parser import parse_resume

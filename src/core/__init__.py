@@ -5,4 +5,11 @@ from src.core.neo4j_client import Neo4jClient
 from src.core.nim_client import NimClient
 from src.core.voyage_client import VoyageClient
 
-__all__ = ["ClaudeChatClient", "Database", "Neo4jClient", "NimClient", "VoyageClient", "build_clients"]
+__all__ = [
+    "ClaudeChatClient",
+    "Database",
+    "Neo4jClient",
+    "NimClient",
+    "VoyageClient",
+    "build_clients",
+]

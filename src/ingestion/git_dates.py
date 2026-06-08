@@ -6,7 +6,10 @@ def get_chunk_dates(repo_path, rel_path, start_line, end_line) -> tuple[date | N
     try:
         result = subprocess.run(
             ["git", "blame", "--date=short", f"-L{start_line},{end_line}", "--", rel_path],
-            cwd=repo_path, capture_output=True, text=True, timeout=10,
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if result.returncode != 0:
             return None, None
