@@ -8,7 +8,11 @@ _SAFE_INDEX_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 class Neo4jClient:
     def __init__(self, uri: str, user: str, password: str, embed_provider: str = "nim"):
-        self.driver = GraphDatabase.driver(uri, auth=(user, password))
+        # liveness check replaces idle/defunct pooled connections (host sleep, server bounce)
+        self.driver = GraphDatabase.driver(
+            uri, auth=(user, password),
+            liveness_check_timeout=30, max_connection_lifetime=600,
+        )
         if embed_provider not in EMBED_PROVIDERS:
             raise ValueError(
                 f"embed_provider must be one of {EMBED_PROVIDERS}, got '{embed_provider}'"

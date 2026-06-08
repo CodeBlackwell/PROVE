@@ -17,6 +17,9 @@ dev:
 optimize-svg:
     bash scripts/optimize-svg.sh
 
+ingest-cost level="repo":
+    uv run python scripts/ingest_cost.py --by {{level}}
+
 deploy: build
     git push
     ssh {{SERVER}} 'cd {{APP_DIR}} && git fetch origin && git reset --hard origin/main && git lfs pull && docker compose -f docker-compose.prod.yml up -d --build'
