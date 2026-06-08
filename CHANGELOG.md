@@ -2,6 +2,25 @@
 
 All notable changes to PROVE are documented here.
 
+## [0.10.0] — 2026-06-08
+
+### Added
+- **Config-driven subject identity** — `subject.toml` (name, naming rules, `github_owner`, `domain`) lets PROVE run for anyone without code changes; `GITHUB_OWNER`/`DOMAIN` env vars override
+- **Continuous integration** — `.github/workflows/ci.yml`: ruff lint + 3.11/3.12 test matrix + coverage; CI/Ruff README badges
+- **Developer tooling** — ruff (lint + format) and mypy config, `.pre-commit-config.yaml`
+- **Community health files** — `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue + PR templates
+- **RAG retrieval eval** — `eval/` golden set + runner scoring citation recall, with recorded Haiku-vs-Sonnet numbers
+- **Ingestion cost report** — `just ingest-cost [repo|file|snippet]` + `scripts/ingest_cost.py` read the SQLite cost ledger
+- **Resume reparse** — `scripts/reparse_resume.py` swaps the ingested resume in place, preserving the Engineer node and repo ownership
+
+### Changed
+- **README split** — lean 214-line README + deep dives under `docs/` (HOW_IT_WORKS, ARCHITECTURE, CONFIGURATION, INGESTION, DEVELOPMENT, DEPLOYMENT)
+- **Service-free unit tests** — `QAAgent` resolves its system prompt lazily, so importing the app no longer queries Neo4j; all unit tests run with no containers (`pytest -m "not e2e"`)
+- **Connection resilience** — Neo4j driver liveness check + `max_connection_lifetime`; Voyage client 60s timeout so hung sockets fail fast into retry
+
+### Fixed
+- Stale gap-overlay color assertions in the test suite; dead-code and `zip(strict=)` lint findings
+
 ## [0.9.2] — 2026-03-26
 
 ### Changed
