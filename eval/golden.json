@@ -1,0 +1,65 @@
+{
+  "_comment": "Golden Q&A set for the PROVE retrieval eval. expect_skills: ALL must appear in the answer (the agent retrieves evidence for the queried skill). expect_repos: ANY ONE must appear (the curator chooses which repo's evidence is most impressive). Grounded in the live graph as of 2026-06-08.",
+  "cases": [
+    {
+      "id": "neo4j",
+      "question": "Does Le have experience with graph databases like Neo4j?",
+      "expect_skills": ["Neo4j"],
+      "expect_repos": ["C.R.A.C.K.", "bloodtrail", "PROVE"]
+    },
+    {
+      "id": "redis",
+      "question": "Has Le used Redis in production?",
+      "expect_skills": ["Redis"],
+      "expect_repos": ["SPICE", "Flow-Ohana"]
+    },
+    {
+      "id": "trading",
+      "question": "What trading or financial systems has Le built?",
+      "expect_skills": ["Financial / Trading"],
+      "expect_repos": ["SPICE"]
+    },
+    {
+      "id": "pentest",
+      "question": "What security or penetration testing work has Le done?",
+      "expect_skills": ["Penetration Testing"],
+      "expect_repos": ["C.R.A.C.K.", "bloodtrail"]
+    },
+    {
+      "id": "react",
+      "question": "Show me Le's React experience.",
+      "expect_skills": ["React"],
+      "expect_repos": ["veridatum", "Flow-Ohana", "Specter-1", "maisight"]
+    },
+    {
+      "id": "typescript",
+      "question": "Does Le write TypeScript?",
+      "expect_skills": ["TypeScript"],
+      "expect_repos": ["maisight", "Specter-1", "Flow-Ohana"]
+    },
+    {
+      "id": "pandas",
+      "question": "Has Le done data analysis with Pandas?",
+      "expect_skills": ["Pandas"],
+      "expect_repos": ["SPICE", "veridatum"]
+    },
+    {
+      "id": "async",
+      "question": "Tell me about Le's async programming experience.",
+      "expect_skills": ["Async Programming"],
+      "expect_repos": ["SPICE", "Flow-Ohana", "maisight"]
+    },
+    {
+      "id": "testing",
+      "question": "How does Le approach testing?",
+      "expect_skills": ["Testing"],
+      "expect_repos": []
+    },
+    {
+      "id": "architecture",
+      "question": "How did Le build PROVE?",
+      "expect_skills": [],
+      "expect_repos": ["PROVE"]
+    }
+  ]
+}

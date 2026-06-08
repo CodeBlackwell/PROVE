@@ -1,0 +1,82 @@
+[
+  {
+    "passed": true,
+    "missing_skills": [],
+    "repo_ok": true,
+    "id": "neo4j",
+    "wall_ms": 18326,
+    "cost_usd": 0.01877
+  },
+  {
+    "passed": true,
+    "missing_skills": [],
+    "repo_ok": true,
+    "id": "redis",
+    "wall_ms": 8887,
+    "cost_usd": 0.01179
+  },
+  {
+    "passed": true,
+    "missing_skills": [],
+    "repo_ok": true,
+    "id": "trading",
+    "wall_ms": 10679,
+    "cost_usd": 0.01234
+  },
+  {
+    "passed": true,
+    "missing_skills": [],
+    "repo_ok": true,
+    "id": "pentest",
+    "wall_ms": 19796,
+    "cost_usd": 0.01869
+  },
+  {
+    "passed": true,
+    "missing_skills": [],
+    "repo_ok": true,
+    "id": "react",
+    "wall_ms": 26959,
+    "cost_usd": 0.01993
+  },
+  {
+    "passed": true,
+    "missing_skills": [],
+    "repo_ok": true,
+    "id": "typescript",
+    "wall_ms": 13379,
+    "cost_usd": 0.0186
+  },
+  {
+    "passed": true,
+    "missing_skills": [],
+    "repo_ok": true,
+    "id": "pandas",
+    "wall_ms": 16327,
+    "cost_usd": 0.01576
+  },
+  {
+    "passed": true,
+    "missing_skills": [],
+    "repo_ok": true,
+    "id": "async",
+    "wall_ms": 21847,
+    "cost_usd": 0.01882
+  },
+  {
+    "passed": true,
+    "missing_skills": [],
+    "repo_ok": true,
+    "id": "testing",
+    "wall_ms": 13791,
+    "cost_usd": 0.01714
+  },
+  {
+    "passed": true,
+    "missing_skills": [],
+    "repo_ok": true,
+    "id": "architecture",
+    "wall_ms": 35675,
+    "cost_usd": 0.03528
+  }
+]
