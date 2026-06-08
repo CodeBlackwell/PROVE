@@ -10,8 +10,10 @@ class Neo4jClient:
     def __init__(self, uri: str, user: str, password: str, embed_provider: str = "nim"):
         # liveness check replaces idle/defunct pooled connections (host sleep, server bounce)
         self.driver = GraphDatabase.driver(
-            uri, auth=(user, password),
-            liveness_check_timeout=30, max_connection_lifetime=600,
+            uri,
+            auth=(user, password),
+            liveness_check_timeout=30,
+            max_connection_lifetime=600,
         )
         if embed_provider not in EMBED_PROVIDERS:
             raise ValueError(
