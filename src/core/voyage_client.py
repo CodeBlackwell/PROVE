@@ -12,7 +12,8 @@ INPUT_TYPE_MAP = {"passage": "document", "query": "query"}
 
 class VoyageClient:
     def __init__(self, api_key: str):
-        self.client = voyageai.Client(api_key=api_key)
+        # timeout so a hung socket fails fast into the retry loop instead of blocking forever
+        self.client = voyageai.Client(api_key=api_key, timeout=60.0)
 
     def embed(
         self, texts: list[str], input_type: str = "passage", model: str = "voyage-3.5"
