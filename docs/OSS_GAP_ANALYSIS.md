@@ -24,17 +24,17 @@ Effort: S (<½ day) · M (1–2 days) · L (multi-day).
 
 | # | Dimension | State | Severity | Effort | Evidence / Gap |
 |---|-----------|:-----:|:--------:|:------:|----------------|
-| 1 | **Reusability (multi-subject)** | 🔴 | Blocking | L | Subject identity hard-coded: name rules in `src/qa/agent.py:39`, `github_owner="codeblackwell"` default in `settings.py:39` + `agent.py:245,256,319`, domain/URLs in `src/app.py`. Cannot be run for another person without editing code. |
-| 2 | **Continuous Integration** | 🔴 | Blocking | S | No `.github/workflows/`. No automated lint/test/build on push or PR. |
-| 3 | **Lint / format / typecheck** | 🔴 | High | S | No ruff/black/mypy/pyright config in `pyproject.toml`. No `.pre-commit-config.yaml`. |
+| 1 | **Reusability (multi-subject)** | 🟢 | — | — | Done 2026-06-08 via `subject.toml` (config-driven, defaults preserved): name rules generated in `agent.py`, `github_owner`/`domain` sourced from config (env overrides). Resume is user-supplied via `--resume`. *Asset decouple (`portfolio/`) deferred — see row 11.* |
+| 2 | **Continuous Integration** | 🟢 | — | — | Done 2026-06-05: `.github/workflows/ci.yml` — lint job + 3.11/3.12 test matrix + coverage. CI + Ruff badges in README. |
+| 3 | **Lint / format / typecheck** | 🟢 | — | — | Done: `ruff` (lint+format) + `mypy` config in `pyproject.toml`, plus `.pre-commit-config.yaml`. CI runs `ruff check` + `ruff format --check`. *(mypy config present but not yet a CI step.)* |
 | 4 | **Test runnability (fresh clone)** | 🟢 | — | — | Fixed 2026-06-08: made `QAAgent` prompt resolution lazy so importing `app` no longer queries Neo4j. All 67 unit tests now pass with zero services; CI dropped the Neo4j container. |
-| 5 | **E2E test isolation** | 🟡 | Medium | S | ~2,500 lines of Playwright target live `localhost:7860` (`tests/e2e/conftest.py:17`), unmarked, so they pollute the default `pytest` run. |
-| 6 | **Coverage measurement** | 🔴 | Medium | S | No `pytest-cov`, no coverage reporting or threshold. |
+| 5 | **E2E test isolation** | 🟢 | — | — | Done 2026-06-05: path-based `e2e` auto-marker in `tests/e2e/conftest.py`; default run uses `-m "not e2e"` (61 unit / 402 e2e deselected). *(No dedicated CI e2e job yet.)* |
+| 6 | **Coverage measurement** | 🟡 | Low | S | `pytest-cov` added; CI reports `--cov-report=term-missing` (~64% baseline). No threshold/gate set yet. |
 | 7 | **RAG / answer-quality eval** | 🔴 | High | M | README claims A/B results (Haiku vs Sonnet) but no eval harness or golden-question set in repo. Highest-value missing artifact given the product. |
-| 8 | **Community health files** | 🔴 | Medium | S | No `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, or `.github/ISSUE_TEMPLATE/`. Contributing = 2 lines in README. |
+| 8 | **Community health files** | 🟢 | — | — | Done 2026-06-05: `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue (bug+feature) + PR templates. |
 | 9 | **README scope** | 🟢 | — | — | Split 2026-06-08: lean 214-line README (hook + one diagram + quickstart + docs index); deep dives in `docs/`. |
-| 10 | **Committed noise / artifacts** | 🟡 | Medium | S | Tracked: `ingestion.log`, `ingestion2.log`, `.DS_Store` (multiple). `*.log`/`.DS_Store` not in `.gitignore`. |
-| 11 | **Personal artifacts in repo** | 🔴 | High | S | `LB_resume_2025.pdf`, `portfolio/` (a full second website), `portfolio/LeChristopher_Blackwell_Resume.pdf` ship in the repo — couples the tool to one person's infra. |
+| 10 | **Committed noise / artifacts** | 🟢 | — | — | Done 2026-06-05: untracked `ingestion*.log`; `.gitignore` now covers `*.log`, `.DS_Store`, `.coverage`, `test-results/`. |
+| 11 | **Personal artifacts in repo** | 🔴 | High | S | Still present: `LB_resume_2025.pdf`, `portfolio/` (a full second website). Deferred by choice — the config-driven approach kept defaults; full decouple was not selected. |
 | 12 | **Module size / separation** | 🟡 | Medium | M | `src/app.py` (655 LOC) and `src/qa/agent.py` (669 LOC) are god modules mixing concerns. Exceeds the project's own 200-line norm. |
 | 13 | **Health / readiness endpoint** | 🔴 | Medium | S | No `/healthz` checking Neo4j connectivity for the Docker/Caddy stack. |
 | 14 | **DB migrations** | 🟡 | Low | M | SQLite schema created inline in `src/core/db.py`; no migration path. Acceptable now, undocumented as a limitation. |
@@ -45,8 +45,10 @@ Effort: S (<½ day) · M (1–2 days) · L (multi-day).
 | 19 | **Provider abstraction** | 🟢 | — | — | Dual-provider client factory with shared `.chat()` interface; deliberate model tiering, documented. |
 | 20 | **License** | 🟢 | — | — | Modified MIT (`LICENSE`) present and referenced. |
 
-**Tally:** 🔴 9 · 🟡 5 · 🟢 6. The bones (16–20) are solid; the gaps cluster in
-reusability (1, 11, 15) and OSS engineering hygiene (2–8).
+**Tally (2026-06-08):** 🔴 4 · 🟡 3 · 🟢 13 — up from the 2026-06-05 baseline of
+🔴 9 · 🟡 5 · 🟢 6. Remaining 🔴: RAG eval (7), personal assets (11), health
+endpoint (13), seed dataset (15). Remaining 🟡: coverage threshold (6), module
+size (12), DB migrations (14).
 
 ---
 
