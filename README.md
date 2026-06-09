@@ -143,6 +143,12 @@ Add your API keys to `.env`. Two pipeline options:
 
 To run PROVE for someone other than the default subject, edit **`subject.toml`** (name, naming rules, GitHub owner, domain). See [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
+> 👀 **Just want to see it work?** Seed a small synthetic graph (no API key needed) and skip straight to step 5:
+> ```bash
+> uv run python scripts/seed_demo.py            # structural demo (homepage + treemap)
+> uv run python scripts/seed_demo.py --embed    # also enables vector search (needs an embed key)
+> ```
+
 ### 4. Ingest your data 🍽️
 
 ```bash
