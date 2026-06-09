@@ -12,11 +12,20 @@ All notable changes to PROVE are documented here.
 - **RAG retrieval eval** — `eval/` golden set + runner scoring citation recall, with recorded Haiku-vs-Sonnet numbers
 - **Ingestion cost report** — `just ingest-cost [repo|file|snippet]` + `scripts/ingest_cost.py` read the SQLite cost ledger
 - **Resume reparse** — `scripts/reparse_resume.py` swaps the ingested resume in place, preserving the Engineer node and repo ownership
+- **`GET /healthz`** — liveness + Neo4j connectivity check (200 ok / 503 degraded) for uptime monitors and container probes
+- **Demo seed** — `scripts/seed_demo.py` builds a synthetic graph (no API key) so a fresh clone renders the app; `--embed` adds vectors for search
+- **Context-augmented embeddings writeup** — `docs/CONTEXT_AUGMENTED_EMBEDDINGS.md` documents the core retrieval technique with an ablation recipe
+- **Manual e2e CI job** — `workflow_dispatch` job seeds the graph, starts the app, and runs Playwright Chromium
 
 ### Changed
-- **README split** — lean 214-line README + deep dives under `docs/` (HOW_IT_WORKS, ARCHITECTURE, CONFIGURATION, INGESTION, DEVELOPMENT, DEPLOYMENT)
+- **README split** — lean README + deep dives under `docs/` (HOW_IT_WORKS, ARCHITECTURE, CONFIGURATION, INGESTION, DEVELOPMENT, DEPLOYMENT, CONTEXT_AUGMENTED_EMBEDDINGS)
 - **Service-free unit tests** — `QAAgent` resolves its system prompt lazily, so importing the app no longer queries Neo4j; all unit tests run with no containers (`pytest -m "not e2e"`)
+- **Coverage gate** — CI enforces `--cov-fail-under=60` (current ~64%)
+- **Formatting extracted** — answer/evidence display helpers moved from `agent.py` to `src/qa/evidence_format.py` (orchestration vs presentation); public surface unchanged
 - **Connection resilience** — Neo4j driver liveness check + `max_connection_lifetime`; Voyage client 60s timeout so hung sockets fail fast into retry
+
+### Removed
+- **Unused personal assets** — `portfolio/` (40MB second website) and `LB_resume_2025.pdf`; neither was referenced by the app or deploy (resume is supplied via `--resume`)
 
 ### Fixed
 - Stale gap-overlay color assertions in the test suite; dead-code and `zip(strict=)` lint findings
