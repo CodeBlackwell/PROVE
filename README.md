@@ -187,6 +187,7 @@ Ask: *"What are this engineer's strongest skills?"* — you should see a narrati
 |-----|---------------|
 | [How It Works](docs/HOW_IT_WORKS.md) | Ingestion, knowledge graph, query pipeline, and JD match — with diagrams |
 | [Architecture](docs/ARCHITECTURE.md) | Model strategy, context augmentation, taxonomy, dual-provider system, SSE streaming |
+| [Context-Augmented Embeddings](docs/CONTEXT_AUGMENTED_EMBEDDINGS.md) | The core retrieval technique — write it up, steal it for your own code-RAG |
 | [Configuration](docs/CONFIGURATION.md) | `subject.toml` + every environment variable |
 | [Ingestion Guide](docs/INGESTION.md) | Resume formats, repo sources, languages, re-embedding, architecture summaries |
 | [Development](docs/DEVELOPMENT.md) | Project structure, testing, structured logging |

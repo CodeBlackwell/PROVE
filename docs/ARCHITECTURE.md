@@ -27,6 +27,8 @@ When `ANTHROPIC_API_KEY` is set, ingestion automatically upgrades to Sonnet *reg
 
 ## 🪄 Context Augmentation — The Secret Sauce
 
+> Deep dive (technique, cost model, evidence, ablation recipe): [Context-Augmented Embeddings](CONTEXT_AUGMENTED_EMBEDDINGS.md).
+
 Consider this function signature: `def refresh_token(client, token):`. A recruiter searching for "OAuth experience" will never find it via naive code search — the word "OAuth" appears nowhere in the code. This vocabulary gap between how humans describe skills and how code implements them is the core retrieval challenge.
 
 PROVE solves this at ingestion time. For every code snippet, Sonnet generates a dense contextual paragraph that restates what the code proves in human-searchable vocabulary:
