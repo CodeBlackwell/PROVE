@@ -192,3 +192,9 @@ bash scripts/deploy.sh
 - **caddy** — Reverse proxy on :80/:443, auto-HTTPS via Let's Encrypt
 
 Neo4j is never exposed to the internet. Caddy handles TLS automatically. Secrets live in `.env` on the server (never committed).
+
+**⚠️ Code vs data — `just deploy` does NOT sync the graph.** `just deploy` rebuilds the app container from `origin/main`; it leaves the production Neo4j graph untouched. After any **re-ingestion or re-embed**, the new repos/snippets exist only locally until you sync them:
+- `just sync` — MERGE-based, additive; pushes local repos to prod, skips repos prod already has up-to-date. Use `just sync --repos <name>...` to scope to specific repos (smaller payload). This is the normal way to get new ingestions live.
+- `just deploy-full` — dumps local Neo4j and **overwrites** the prod graph entirely (heavier; replaces prod-only edits like architecture summaries).
+
+Symptom of a missed sync: the live agent says "I don't have a repository called X" for a repo that exists locally. Check `GET /api/repositories` on prod vs the local graph. (`scripts/sync-to-prod.py` is gitignored local tooling; its `PROD_CONTAINER` must match the live app container name, currently `prove-app`.)
