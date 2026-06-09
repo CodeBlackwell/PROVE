@@ -20,6 +20,10 @@ All notable changes to PROVE are documented here.
 
 ### Fixed
 - Stale gap-overlay color assertions in the test suite; dead-code and `zip(strict=)` lint findings
+- **Dockerfile** now copies `subject.toml` into the image, so config-driven identity works in the deployed container (not just locally)
+
+### Notes
+- `just deploy` ships **code only** — the production Neo4j graph is not synced. After re-ingestion, run `just sync` (additive) or `just deploy-full` (overwrite) to push new repos live. Documented in CLAUDE.md.
 
 ## [0.9.2] — 2026-03-26
 

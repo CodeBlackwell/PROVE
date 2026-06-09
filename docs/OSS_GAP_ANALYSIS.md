@@ -8,12 +8,13 @@ This document records (1) a **scoring matrix** of maturity dimensions and (2) a
 **prioritized, actionable checklist**. Every finding cites a concrete file or
 the absence of one so it can be verified and closed.
 
-> **Progress (2026-06-08):** P0 hygiene complete (CI, ruff, mypy, pre-commit,
+> **Progress (2026-06-09):** P0 hygiene complete (CI, ruff, mypy, pre-commit,
 > community-health files, log cleanup, README split). P1 reusability landed via
-> the *config-driven, keep-defaults* approach (`subject.toml`). Remaining: full
-> asset decouple (deferred) and the RAG eval set (P2). Service-free unit tests
-> landed 2026-06-08 via lazy app init.
-> Completed items are checked off below.
+> the *config-driven, keep-defaults* approach (`subject.toml`). P2 done: service-free
+> unit tests (lazy app init), e2e marker, coverage reporting, and the RAG retrieval
+> eval (`eval/`, recorded Haiku-vs-Sonnet numbers). Shipped to prod 2026-06-08.
+> Remaining: seed dataset, `/healthz`, personal-asset decision, coverage gate,
+> module splits, DB-migration note. Completed items are checked off below.
 
 ---
 
@@ -30,7 +31,7 @@ Effort: S (<½ day) · M (1–2 days) · L (multi-day).
 | 4 | **Test runnability (fresh clone)** | 🟢 | — | — | Fixed 2026-06-08: made `QAAgent` prompt resolution lazy so importing `app` no longer queries Neo4j. All 67 unit tests now pass with zero services; CI dropped the Neo4j container. |
 | 5 | **E2E test isolation** | 🟢 | — | — | Done 2026-06-05: path-based `e2e` auto-marker in `tests/e2e/conftest.py`; default run uses `-m "not e2e"` (61 unit / 402 e2e deselected). *(No dedicated CI e2e job yet.)* |
 | 6 | **Coverage measurement** | 🟡 | Low | S | `pytest-cov` added; CI reports `--cov-report=term-missing` (~64% baseline). No threshold/gate set yet. |
-| 7 | **RAG / answer-quality eval** | 🔴 | High | M | README claims A/B results (Haiku vs Sonnet) but no eval harness or golden-question set in repo. Highest-value missing artifact given the product. |
+| 7 | **RAG / answer-quality eval** | 🟢 | — | — | Done 2026-06-08: `eval/` — 10-case golden set (skills all-of, repos any-of, grounded in the graph) + `run.py` scoring citation recall with cost/latency + recorded numbers. Both models 10/10; Haiku $0.19/18.6s vs Sonnet $0.55/41.4s, substantiating the README claim. |
 | 8 | **Community health files** | 🟢 | — | — | Done 2026-06-05: `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue (bug+feature) + PR templates. |
 | 9 | **README scope** | 🟢 | — | — | Split 2026-06-08: lean 214-line README (hook + one diagram + quickstart + docs index); deep dives in `docs/`. |
 | 10 | **Committed noise / artifacts** | 🟢 | — | — | Done 2026-06-05: untracked `ingestion*.log`; `.gitignore` now covers `*.log`, `.DS_Store`, `.coverage`, `test-results/`. |
@@ -45,10 +46,10 @@ Effort: S (<½ day) · M (1–2 days) · L (multi-day).
 | 19 | **Provider abstraction** | 🟢 | — | — | Dual-provider client factory with shared `.chat()` interface; deliberate model tiering, documented. |
 | 20 | **License** | 🟢 | — | — | Modified MIT (`LICENSE`) present and referenced. |
 
-**Tally (2026-06-08):** 🔴 4 · 🟡 3 · 🟢 13 — up from the 2026-06-05 baseline of
-🔴 9 · 🟡 5 · 🟢 6. Remaining 🔴: RAG eval (7), personal assets (11), health
-endpoint (13), seed dataset (15). Remaining 🟡: coverage threshold (6), module
-size (12), DB migrations (14).
+**Tally (2026-06-09):** 🔴 3 · 🟡 3 · 🟢 14 — up from the 2026-06-05 baseline of
+🔴 9 · 🟡 5 · 🟢 6. Remaining 🔴: personal assets (11), health endpoint (13),
+seed dataset (15). Remaining 🟡: coverage threshold (6), module size (12), DB
+migrations (14).
 
 ---
 
@@ -137,10 +138,10 @@ Grouped by priority. Check off as completed.
 ### P2 — Testing & correctness
 
 - [x] Make unit tests run with zero external services — done via lazy `QAAgent` prompt resolution (no testcontainers dependency needed); CI dropped the Neo4j service.
-- [ ] Mark E2E tests `@pytest.mark.e2e`; exclude from default `pytest`; add a gated CI job.
-- [ ] Add `pytest-cov`; report coverage in CI; set a baseline threshold.
-- [ ] Build a RAG eval set: golden questions → expected skills/repos cited.
-- [ ] Add an eval runner script + document the Haiku-vs-Sonnet claim with reproducible numbers.
+- [x] Mark E2E tests `@pytest.mark.e2e`; exclude from default `pytest`. *(Dedicated gated CI e2e job still pending.)*
+- [x] Add `pytest-cov`; report coverage in CI. *(Baseline threshold/gate not yet set — ~64%.)*
+- [x] Build a RAG eval set: golden questions → expected skills/repos cited (`eval/golden.json`, 10 cases).
+- [x] Add an eval runner script + document the Haiku-vs-Sonnet claim with reproducible numbers (`eval/run.py`, `eval/README.md`).
 
 ### P3 — Code structure & ops
 
@@ -160,9 +161,16 @@ Grouped by priority. Check off as completed.
 
 ## 4. Top 3 (if nothing else)
 
-1. **Make the subject configurable** — removes the single-tenant ceiling (P1).
-2. **CI + ruff + tests that run without Neo4j** — removes the "not maintained-grade" signal (P0/P2).
-3. **Ship a RAG eval set** — turns quality claims into evidence, fitting for the product (P2).
+The original top 3 — subject config, CI + service-free tests, and the RAG eval — are
+**all shipped**. Current highest-value remaining work:
+
+1. **Anonymized seed dataset (row 15)** — unlocks "clone → see it work" *and* lets
+   anyone reproduce the eval numbers; also closes the gap behind the maisight-style
+   prod/local data drift.
+2. **`/healthz` endpoint (row 13)** — cheap ops robustness for the Docker/Caddy stack.
+3. **Decide the personal-asset question (row 11)** — either remove `portfolio/` +
+   resume for a clean generic tool, or explicitly document keeping them as the
+   canonical-deploy choice.
 
 ---
 
