@@ -37,4 +37,4 @@ jobs:
       - run: uv sync --frozen
       # Unit tests mock all external services (Neo4j, LLM APIs) — no containers needed.
       - name: Run unit tests (e2e deselected)
-        run: uv run pytest tests/ -m "not e2e" --cov=src --cov-report=term-missing
+        run: uv run pytest tests/ -m "not e2e" --cov=src --cov-report=term-missing --cov-fail-under=60

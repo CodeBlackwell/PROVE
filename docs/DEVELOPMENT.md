@@ -74,6 +74,15 @@ uv run ruff check src tests
 uv run ruff format --check src tests
 ```
 
+## 🗄️ SQLite schema
+
+The SQLite schema (`src/core/db.py`) is applied with `CREATE TABLE/INDEX IF NOT
+EXISTS` on startup. **Changes are additive only** — there is no migration framework
+and no down-migrations. Renaming/dropping a column or backfilling rows needs a
+manual one-off script. Adopt a lightweight migration tool only if a destructive
+schema change becomes necessary. (Neo4j is the primary store; SQLite holds
+conversations, logs, rate limits, and the ingestion cost ledger.)
+
 ## 📋 Structured Logging
 
 Every LLM call, embedding, tool execution, and curation decision is logged with session context, token counts, latency, and cost estimates. Full observability, zero guesswork 🔍

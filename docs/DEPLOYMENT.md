@@ -33,6 +33,16 @@ docker compose -f docker-compose.prod.yml logs -f
 git pull && docker compose -f docker-compose.prod.yml up -d --build
 ```
 
+## ❤️ Health check
+
+`GET /healthz` returns `{"status":"ok","neo4j":"up"}` (HTTP 200) when the app can
+reach Neo4j, or `{"status":"degraded","neo4j":"down"}` (HTTP 503) when it can't.
+Use it for uptime monitors and container/orchestrator health probes.
+
+```bash
+curl -fsS https://prove.codeblackwell.ai/healthz
+```
+
 ## 🛡️ Security
 
 - 🔐 Caddy auto-provisions HTTPS via Let's Encrypt and adds security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`)

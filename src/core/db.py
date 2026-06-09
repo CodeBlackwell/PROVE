@@ -1,4 +1,13 @@
-"""SQLite persistence for conversations and structured logs."""
+"""SQLite persistence for conversations and structured logs.
+
+Schema management: the schema is defined inline in ``SCHEMA_SQL`` and applied via
+``CREATE TABLE/INDEX IF NOT EXISTS`` on every startup (``_init_schema``). This is
+intentional — changes are **additive only** (new tables/columns/indexes); there is
+no migration framework and no down-migrations. Renaming or dropping a column, or
+backfilling existing rows, requires a manual one-off script. If the schema ever
+needs destructive change, adopt a lightweight migration tool (e.g. ``yoyo`` or
+hand-rolled versioned steps) rather than editing ``SCHEMA_SQL`` in place.
+"""
 
 import json
 import sqlite3

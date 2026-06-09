@@ -151,6 +151,18 @@ def _check_limit(
     return None
 
 
+@app.get("/healthz")
+def healthz():
+    """Liveness + Neo4j connectivity check for the Docker/Caddy stack."""
+    try:
+        with clients["neo4j_client"].driver.session() as s:
+            s.run("RETURN 1").consume()
+        return {"status": "ok", "neo4j": "up"}
+    except Exception as e:
+        logger.warning("healthz.neo4j_down", error=str(e))
+        return JSONResponse({"status": "degraded", "neo4j": "down"}, status_code=503)
+
+
 @app.get("/")
 def index(request: Request):
     with clients["neo4j_client"].driver.session() as s:

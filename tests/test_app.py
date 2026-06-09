@@ -1,6 +1,24 @@
 from unittest.mock import MagicMock, patch
 
 
+def test_healthz_ok_when_neo4j_reachable():
+    import src.app as appmod
+
+    with patch.dict(appmod.clients, {"neo4j_client": MagicMock()}):
+        result = appmod.healthz()
+    assert result == {"status": "ok", "neo4j": "up"}
+
+
+def test_healthz_degraded_when_neo4j_down():
+    import src.app as appmod
+
+    bad = MagicMock()
+    bad.driver.session.side_effect = Exception("connection refused")
+    with patch.dict(appmod.clients, {"neo4j_client": bad}):
+        result = appmod.healthz()
+    assert result.status_code == 503
+
+
 def test_competency_map():
     from src.ui.competency_map import build_competency_graph
 
