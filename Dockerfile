@@ -12,6 +12,7 @@ RUN uv sync --frozen --no-dev
 # Copy application code
 COPY src/ src/
 COPY scripts/ scripts/
+COPY subject.toml ./
 
 EXPOSE 7860
 
