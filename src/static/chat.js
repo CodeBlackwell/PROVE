@@ -403,8 +403,8 @@ function showStarters() {
   const firstName = (window.__ENGINEER_NAME__ || 'Engineer').split(' ')[0];
   const buildQ = (repo) => 'How did ' + firstName + ' build ' + repo + '?';
 
-  fetch('/api/repositories')
-    .then(r => r.ok ? r.json() : [])
+  (window.__reposPromise || fetch('/api/repositories').then(r => r.ok ? r.json() : Promise.reject()))
+    .catch(() => [])
     .then(repos => {
       const names = repos.map(r => r.display_name || r.name);
       const pick = names.length ? names[Math.floor(Math.random() * names.length)] : 'PROVE';

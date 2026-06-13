@@ -45,78 +45,112 @@ def get_evidence(skill_name: str, neo4j_client: Neo4jClient) -> list[dict]:
 
 
 def find_gaps(skills_csv: str, neo4j_client: Neo4jClient) -> list[dict]:
-    results = []
-    for skill in (s.strip() for s in skills_csv.split(",") if s.strip()):
-        info = neo4j_client.get_skill_with_hierarchy(skill)
-        if info and info.get("snippet_count", 0) > 0:
-            results.append(
-                {
-                    "skill": skill,
-                    "status": "demonstrated",
-                    "code_examples": info["snippet_count"],
-                    "proficiency": info.get("proficiency", "none"),
-                    "domain": info.get("domain"),
-                    "category": info.get("category"),
-                }
-            )
-            continue
+    skills = [s.strip() for s in skills_csv.split(",") if s.strip()]
+    if not skills:
+        return []
 
-        # Check category-level for related skills
+    # Query 1: batch skill hierarchy lookup
+    skill_info = _batch_skill_lookup(skills, neo4j_client)
+
+    needs_category: list[tuple[str, str, str]] = []  # (skill, domain, category)
+    needs_claims: list[str] = []
+    results = []
+
+    for skill in skills:
+        info = skill_info.get(skill)
+        if info and info.get("snippet_count", 0) > 0:
+            results.append({
+                "skill": skill,
+                "status": "demonstrated",
+                "code_examples": info["snippet_count"],
+                "proficiency": info.get("proficiency", "none"),
+                "domain": info.get("domain"),
+                "category": info.get("category"),
+            })
+            continue
         hierarchy = SKILL_HIERARCHY.get(skill)
         if hierarchy:
-            domain, category = hierarchy
-            related = _find_related_in_category(category, neo4j_client)
-            if related:
-                results.append(
-                    {
-                        "skill": skill,
-                        "status": "not_found_but_related",
-                        "code_examples": 0,
-                        "domain": domain,
-                        "category": category,
-                        "related_demonstrated": related,
-                    }
-                )
-                continue
+            needs_category.append((skill, hierarchy[0], hierarchy[1]))
+        else:
+            needs_claims.append(skill)
 
-        with neo4j_client.driver.session() as session:
-            claim = session.run(
-                "MATCH (:Engineer)-[:CLAIMS]->(:Skill {name: $name}) RETURN count(*) AS c",
-                name=skill,
-            ).single()["c"]
-        if claim > 0:
-            alias = RESUME_SKILL_ALIASES.get(skill)
-            alias_cat, alias_dom = None, None
-            if alias and alias.startswith("cat:"):
-                alias_cat = alias[4:]
-                alias_dom = CATEGORY_TO_DOMAIN.get(alias_cat)
-            elif alias:
-                hier = SKILL_HIERARCHY.get(alias)
-                if hier:
-                    alias_dom, alias_cat = hier
-            results.append(
-                {
+    # Query 2: batch related-in-category lookup
+    if needs_category:
+        categories = list({cat for _, _, cat in needs_category})
+        related_by_cat = _batch_related_in_categories(categories, neo4j_client)
+        for skill, domain, category in needs_category:
+            related = related_by_cat.get(category, [])
+            if related:
+                results.append({
+                    "skill": skill,
+                    "status": "not_found_but_related",
+                    "code_examples": 0,
+                    "domain": domain,
+                    "category": category,
+                    "related_demonstrated": related,
+                })
+            else:
+                needs_claims.append(skill)
+
+    # Query 3: batch claims check
+    if needs_claims:
+        claimed = _batch_claims_check(needs_claims, neo4j_client)
+        for skill in needs_claims:
+            if skill in claimed:
+                alias = RESUME_SKILL_ALIASES.get(skill)
+                alias_cat, alias_dom = None, None
+                if alias and alias.startswith("cat:"):
+                    alias_cat = alias[4:]
+                    alias_dom = CATEGORY_TO_DOMAIN.get(alias_cat)
+                elif alias:
+                    hier = SKILL_HIERARCHY.get(alias)
+                    if hier:
+                        alias_dom, alias_cat = hier
+                results.append({
                     "skill": skill,
                     "status": "claimed_only",
                     "code_examples": 0,
                     "domain": alias_dom,
                     "category": alias_cat,
-                }
-            )
-        else:
-            results.append({"skill": skill, "status": "not_found", "code_examples": 0})
+                })
+            else:
+                results.append({"skill": skill, "status": "not_found", "code_examples": 0})
     return results
 
 
-def _find_related_in_category(category: str, neo4j_client: Neo4jClient) -> list[str]:
+def _batch_skill_lookup(skill_names: list[str], neo4j_client: Neo4jClient) -> dict[str, dict]:
     with neo4j_client.driver.session() as session:
         result = session.run(
-            "MATCH (:Category {name: $cat})-[:CONTAINS]->(s:Skill) "
-            "WHERE s.proficiency IS NOT NULL AND s.proficiency <> 'none' "
-            "RETURN s.name AS name",
-            cat=category,
+            "MATCH (d:Domain)-[:CONTAINS]->(c:Category)-[:CONTAINS]->(s:Skill) "
+            "WHERE s.name IN $names "
+            "RETURN s.name AS skill, d.name AS domain, c.name AS category, "
+            "s.proficiency AS proficiency, s.snippet_count AS snippet_count",
+            names=skill_names,
         )
-        return [r["name"] for r in result]
+        return {r["skill"]: dict(r) for r in result}
+
+
+def _batch_related_in_categories(categories: list[str], neo4j_client: Neo4jClient) -> dict[str, list[str]]:
+    with neo4j_client.driver.session() as session:
+        result = session.run(
+            "MATCH (c:Category)-[:CONTAINS]->(s:Skill) "
+            "WHERE c.name IN $cats AND s.proficiency IS NOT NULL AND s.proficiency <> 'none' "
+            "RETURN c.name AS category, s.name AS skill",
+            cats=categories,
+        )
+        out: dict[str, list[str]] = {}
+        for r in result:
+            out.setdefault(r["category"], []).append(r["skill"])
+        return out
+
+
+def _batch_claims_check(skill_names: list[str], neo4j_client: Neo4jClient) -> set[str]:
+    with neo4j_client.driver.session() as session:
+        result = session.run(
+            "MATCH (:Engineer)-[:CLAIMS]->(s:Skill) WHERE s.name IN $names RETURN s.name AS skill",
+            names=skill_names,
+        )
+        return {r["skill"] for r in result}
 
 
 def get_repo_overview(repo_name: str, neo4j_client: Neo4jClient) -> dict:

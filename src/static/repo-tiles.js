@@ -574,9 +574,10 @@
 
   /* ── Init: fetch and distribute tiles ──────────── */
 
-  fetch('/api/repositories')
-    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then(repos => {
+  window.__reposPromise = fetch('/api/repositories')
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+
+  window.__reposPromise.then(repos => {
       if (STRIP) initMobileStrip(repos);
       if (!hasDesktop) return;
 

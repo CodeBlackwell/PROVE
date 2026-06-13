@@ -58,6 +58,9 @@ qa_agent = QAAgent(
 )
 jd_agent = JDMatchAgent(clients["neo4j_client"], clients["chat_client"], clients["embed_client"])
 
+# Warm system prompt at startup so the first request doesn't pay the cold-start cost
+_ = qa_agent.system_prompt
+
 logger.info(
     "app.startup", chat_provider=settings.chat_provider, embed_provider=settings.embed_provider
 )
@@ -243,13 +246,8 @@ def chat(request: Request, q: str, session_id: str | None = None, fp: str | None
 # ---------------------------------------------------------------------------
 
 
-@app.get("/api/repositories")
-def list_repositories(request: Request):
-    vid = _visitor_id(request)
-    blocked = _check_limit(vid, "read", request)
-    if blocked:
-        return blocked
-
+@lru_cache(maxsize=1)
+def _fetch_repositories():
     neo4j = clients["neo4j_client"]
     with neo4j.driver.session() as s:
         rows = s.run(
@@ -261,7 +259,6 @@ def list_repositories(request: Request):
             "       collect({domain: domain, skill_count: skill_count, snippets: snippet_count}) AS domains "
             "ORDER BY r.name"
         ).data()
-
     return [
         {
             "name": r["name"],
@@ -271,6 +268,15 @@ def list_repositories(request: Request):
         }
         for r in rows
     ]
+
+
+@app.get("/api/repositories")
+def list_repositories(request: Request):
+    vid = _visitor_id(request)
+    blocked = _check_limit(vid, "read", request)
+    if blocked:
+        return blocked
+    return _fetch_repositories()
 
 
 REPO_BREAKDOWNS = {

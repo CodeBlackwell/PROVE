@@ -3,6 +3,7 @@ import math
 import re
 import time
 from collections.abc import Generator
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
 from src.core import logger
@@ -237,6 +238,7 @@ class QAAgent:
         self.github_owner = github_owner
         self.subject = subject
         self._system_prompt = None
+        self._tool_cache: dict[str, str] = {}
 
     @property
     def system_prompt(self) -> str:
@@ -293,6 +295,10 @@ class QAAgent:
                     item["content"] = ""
 
     def _execute_tool(self, name: str, args: dict) -> str:
+        cache_key = name + json.dumps(args, sort_keys=True)
+        if cache_key in self._tool_cache:
+            return self._tool_cache[cache_key]
+
         t0 = time.perf_counter()
         dispatch = {
             "search_code": lambda: search_code(args["query"], self.neo4j, self.embed),
@@ -308,6 +314,7 @@ class QAAgent:
         if not self.show_private_code:
             self._redact_private(result)
         serialized = json.dumps(result)
+        self._tool_cache[cache_key] = serialized
         latency = int((time.perf_counter() - t0) * 1000)
 
         result_count = len(result) if isinstance(result, list) else 1
@@ -565,6 +572,7 @@ class QAAgent:
                      Injected between the system prompt and the new question so the model
                      can resolve references like "tell me more about that".
         """
+        self._tool_cache = {}
         messages = [{"role": "system", "content": self.system_prompt}]
         if history:
             messages.extend(history)
@@ -615,36 +623,36 @@ class QAAgent:
                 )
                 self._collect_evidence(result, all_evidence)
                 self._collect_entities(tc.function.name, args, result, entities)
-                # Emit intermediate subgraph for progressive reveal
-                if entities:
-                    intermediate = build_query_subgraph(self.neo4j, entities)
-                    if intermediate["nodes"]:
-                        yield intermediate
         else:
             logger.info("agent.react_done", step=MAX_TOOL_CALLS, reason="max_calls_reached")
             response = self.chat.chat(messages, purpose="react_final")
             choice = response.choices[0]
 
-        if entities:
-            subgraph = build_query_subgraph(self.neo4j, entities)
-            if subgraph["nodes"]:
-                logger.debug(
-                    "agent.subgraph",
-                    node_count=len(subgraph["nodes"]),
-                    edge_count=len(subgraph["edges"]),
-                )
-                yield subgraph
-
-        # Log evidence summary
-        repos = {e.get("repo") for e in all_evidence if e.get("repo")}
-        skills = {e.get("skill_name") for e in all_evidence if e.get("skill_name")}
-        logger.log_evidence(
-            collected=len(all_evidence), unique_repos=len(repos), unique_skills=len(skills)
-        )
-
         sorted_ev = _sort_evidence(all_evidence)
-        yield {"_status": True, "phase": "curating"}
-        curated, curation_meta = self._curate_evidence(question, sorted_ev)
+
+        # Kick off curation in background while subgraph queries run in parallel
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            curate_future = pool.submit(self._curate_evidence, question, sorted_ev)
+
+            if entities:
+                subgraph = build_query_subgraph(self.neo4j, entities)
+                if subgraph["nodes"]:
+                    logger.debug(
+                        "agent.subgraph",
+                        node_count=len(subgraph["nodes"]),
+                        edge_count=len(subgraph["edges"]),
+                    )
+                    yield subgraph
+
+            # Log evidence summary
+            repos = {e.get("repo") for e in all_evidence if e.get("repo")}
+            skills = {e.get("skill_name") for e in all_evidence if e.get("skill_name")}
+            logger.log_evidence(
+                collected=len(all_evidence), unique_repos=len(repos), unique_skills=len(skills)
+            )
+
+            yield {"_status": True, "phase": "curating"}
+            curated, curation_meta = curate_future.result()
         yield {"_status": True, "phase": "answering"}
 
         # Emit all evidence metadata for the confidence panel

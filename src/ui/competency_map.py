@@ -89,31 +89,40 @@ def get_graph_data(neo4j_client):
     return {"nodes": nodes, "edges": edges}
 
 
-def _top_evidence_links(session, skill_name: str, limit: int = 5) -> list[dict]:
-    """Fetch top evidence file links for a skill, ordered by start_line."""
+def _batch_evidence_links(session, skill_names: list[str], limit: int = 5) -> dict[str, list[dict]]:
+    """Fetch top evidence file links for multiple skills in one query."""
+    if not skill_names:
+        return {}
     try:
         rows = session.run(
-            "MATCH (f:File)-[:CONTAINS]->(cs:CodeSnippet)-[:DEMONSTRATES]->(s:Skill {name: $name}) "
+            "MATCH (f:File)-[:CONTAINS]->(cs:CodeSnippet)-[:DEMONSTRATES]->(s:Skill) "
+            "WHERE s.name IN $names "
             "MATCH (r:Repository)-[:CONTAINS]->(f) "
-            "RETURN r.name AS repo, r.default_branch AS branch, r.private AS private, "
-            "f.path AS path, cs.start_line AS line, cs.language AS lang "
-            "ORDER BY cs.start_line LIMIT $limit",
-            name=skill_name,
+            "WITH s.name AS skill, r.name AS repo, r.default_branch AS branch, r.private AS private, "
+            "     f.path AS path, cs.start_line AS line, cs.language AS lang "
+            "ORDER BY skill, line "
+            "WITH skill, collect({repo: repo, branch: branch, private: private, "
+            "     path: path, line: line, lang: lang})[0..$limit] AS links "
+            "RETURN skill, links",
+            names=skill_names,
             limit=limit,
         )
-        return [
-            {
-                "repo": r["repo"],
-                "branch": r["branch"] or "main",
-                "path": r["path"],
-                "line": r["line"] or 0,
-                "lang": r["lang"] or "",
-                "private": bool(r["private"]),
-            }
-            for r in rows
-        ]
+        result: dict[str, list[dict]] = {}
+        for r in rows:
+            result[r["skill"]] = [
+                {
+                    "repo": lnk["repo"],
+                    "branch": lnk["branch"] or "main",
+                    "path": lnk["path"],
+                    "line": lnk["line"] or 0,
+                    "lang": lnk["lang"] or "",
+                    "private": bool(lnk["private"]),
+                }
+                for lnk in r["links"]
+            ]
+        return result
     except Exception:
-        return []
+        return {}
 
 
 def _repo_breakdown(session, skill_names: list[str]) -> dict[str, list[dict]]:
@@ -156,13 +165,14 @@ def get_subgraph(neo4j_client, skill_names: list[str]) -> dict:
         all_rows = rows.data() if hasattr(rows, "data") else list(rows)
         all_skill_names = [r["skill"] for r in all_rows]
         repo_counts = _repo_breakdown(session, all_skill_names)
+        evidence_by_skill = _batch_evidence_links(session, all_skill_names)
 
         nodes, edges = [], []
         node_ids, edge_ids = set(), set()
         for r in all_rows:
             did, cid, sid = f"dom:{r['domain']}", f"cat:{r['category']}", f"skill:{r['skill']}"
             size = PROFICIENCY_SIZE.get(r["proficiency"], 10)
-            evidence_links = _top_evidence_links(session, r["skill"])
+            evidence_links = evidence_by_skill.get(r["skill"], [])
             for nid, label, color, sz, meta in [
                 (did, r["domain"], NODE_COLORS["Domain"], 26, {"type": "domain"}),
                 (cid, r["category"], NODE_COLORS["Category"], 18, {"type": "category"}),
