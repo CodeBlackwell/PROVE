@@ -137,6 +137,6 @@ def _generate_batch(snippets: list[dict], chat_client, skills_list: str) -> list
         return descs
     except InsufficientCreditsError:
         raise
-    except (json.JSONDecodeError, Exception) as e:
+    except Exception as e:
         logger.error("context.generation_failed", error=str(e), batch_size=len(snippets))
         return [""] * len(snippets)
