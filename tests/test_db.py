@@ -60,65 +60,18 @@ def test_session_exists(db):
     assert not db.session_exists("s2")
 
 
-def test_list_sessions(db):
-    db.save_message("s1", "user", "First question")
-    db.save_message("s1", "assistant", "Answer")
-    db.save_message("s2", "user", "Second question")
-
-    sessions = db.list_sessions()
-    assert len(sessions) == 2
-    # Most recent first
-    assert sessions[0]["session_id"] == "s2"
-    assert sessions[0]["first_query"] == "Second question"
-    assert sessions[0]["message_count"] == 1
-    assert sessions[1]["session_id"] == "s1"
-    assert sessions[1]["message_count"] == 2
-
-
-def test_list_sessions_pagination(db):
-    for i in range(5):
-        db.save_message(f"s{i}", "user", f"Q{i}")
-
-    page1 = db.list_sessions(limit=2, offset=0)
-    page2 = db.list_sessions(limit=2, offset=2)
-    assert len(page1) == 2
-    assert len(page2) == 2
-    assert page1[0]["session_id"] != page2[0]["session_id"]
-
-
-def test_save_and_query_logs(db):
+def test_save_log(db):
     db.save_log(
-        "2026-01-01T00:00:00Z", "INFO", "test.event", session_id="s1", fields={"key": "value"}
+        "2026-01-01T00:00:00Z", "ERROR", "test.error", session_id="s1", fields={"error": "boom"}
     )
-    db.save_log(
-        "2026-01-01T00:00:01Z", "ERROR", "test.error", session_id="s1", fields={"error": "boom"}
-    )
-    db.save_log("2026-01-01T00:00:02Z", "INFO", "other.event", session_id="s2", fields={})
 
-    # All logs
-    all_logs = db.query_logs()
-    assert len(all_logs) == 3
-
-    # Filter by session
-    s1_logs = db.query_logs(session_id="s1")
-    assert len(s1_logs) == 2
-
-    # Filter by event
-    error_logs = db.query_logs(event="test.error")
-    assert len(error_logs) == 1
-    assert error_logs[0]["fields"] == {"error": "boom"}
-
-    # Filter by level
-    info_logs = db.query_logs(level="INFO")
-    assert len(info_logs) == 2
-
-
-def test_query_logs_pagination(db):
-    for i in range(10):
-        db.save_log(f"2026-01-01T00:00:{i:02d}Z", "INFO", "test.event")
-
-    page = db.query_logs(limit=3, offset=0)
-    assert len(page) == 3
+    row = db._get_conn().execute("SELECT level, event, session_id, fields FROM logs").fetchone()
+    assert dict(row) == {
+        "level": "ERROR",
+        "event": "test.error",
+        "session_id": "s1",
+        "fields": '{"error": "boom"}',
+    }
 
 
 def test_message_metadata(db):

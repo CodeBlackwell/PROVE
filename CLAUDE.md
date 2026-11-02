@@ -122,14 +122,9 @@ Thread-safe via `threading.local()` per-thread connections with WAL mode. Create
 
 Per-visitor rate limits protect API costs in production:
 - `/api/chat`: 20 requests/hour (~$0.20 max cost per visitor)
-- `/api/sessions`, `/api/logs`: 60 reads/hour
+- `/api/repositories` and the other browsing endpoints: 60 reads/hour
 
 Visitor identity is the address alone: anything the client supplies, such as the `fp` fingerprint `static/fingerprint.js` still sends, would let it pick a fresh bucket, so the server ignores it. In production the address comes from `X-Forwarded-For`, which uvicorn trusts only from Docker's private range (`FORWARDED_ALLOW_IPS` in `docker-compose.prod.yml`) because Caddy replaces that header with the real peer. Returns 429 with `Retry-After` header when exceeded. Expired entries cleaned up on startup.
-
-**API endpoints:**
-- `GET /api/sessions` — list past conversations (paginated)
-- `GET /api/sessions/{session_id}` — full message history for a session
-- `GET /api/logs?session_id=&event=&level=` — query logs with filters
 
 ### Structured Logger
 

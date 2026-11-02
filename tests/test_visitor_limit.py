@@ -71,3 +71,9 @@ def test_a_crawler_user_agent_is_still_counted_on_jd_match(db):
     db.check_rate_limit.return_value = (False, 0)
     crawler = visitor("203.0.113.9", user_agent="Googlebot/2.1")
     assert crawler.post("/api/jd-match", data={"text": "x"}).status_code == 429
+
+
+@pytest.mark.parametrize("path", ["/api/sessions", "/api/sessions/abc123", "/api/logs"])
+def test_history_and_log_routes_are_gone(db, path):
+    response = visitor("203.0.113.9").get(path)
+    assert (response.status_code, response.json()) == (404, {"detail": "Not Found"})

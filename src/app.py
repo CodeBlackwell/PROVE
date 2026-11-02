@@ -461,50 +461,6 @@ def repo_skill_snippets(repo_name: str, skill_name: str, request: Request):
 
 
 # ---------------------------------------------------------------------------
-# History & log browsing endpoints
-# ---------------------------------------------------------------------------
-
-
-@app.get("/api/sessions")
-def list_sessions(request: Request, limit: int = 50, offset: int = 0):
-    vid = _visitor_id(request)
-    blocked = _check_limit(vid, "read", request)
-    if blocked:
-        return blocked
-    return db.list_sessions(limit=limit, offset=offset)
-
-
-@app.get("/api/sessions/{session_id}")
-def get_session(request: Request, session_id: str):
-    vid = _visitor_id(request)
-    blocked = _check_limit(vid, "read", request)
-    if blocked:
-        return blocked
-    messages = db.get_session_history(session_id, limit=1000)
-    if not messages:
-        return JSONResponse({"error": "Session not found"}, status_code=404)
-    return {"session_id": session_id, "messages": messages}
-
-
-@app.get("/api/logs")
-def query_logs(
-    request: Request,
-    session_id: str | None = None,
-    event: str | None = None,
-    level: str | None = None,
-    limit: int = 100,
-    offset: int = 0,
-):
-    vid = _visitor_id(request)
-    blocked = _check_limit(vid, "read", request)
-    if blocked:
-        return blocked
-    return db.query_logs(
-        session_id=session_id, event=event, level=level, limit=limit, offset=offset
-    )
-
-
-# ---------------------------------------------------------------------------
 # Skill reference detail endpoint
 # ---------------------------------------------------------------------------
 

@@ -119,23 +119,6 @@ class Database:
         ).fetchall()
         return [{"role": r["role"], "content": r["content"]} for r in rows]
 
-    def list_sessions(self, limit: int = 50, offset: int = 0) -> list[dict]:
-        """Return session summaries: session_id, first_query, message_count, timestamps."""
-        conn = self._get_conn()
-        rows = conn.execute(
-            "SELECT session_id, "
-            "  MIN(CASE WHEN role='user' THEN content END) AS first_query, "
-            "  COUNT(*) AS message_count, "
-            "  MIN(created_at) AS started_at, "
-            "  MAX(created_at) AS last_at "
-            "FROM conversations "
-            "GROUP BY session_id "
-            "ORDER BY MAX(id) DESC "
-            "LIMIT ? OFFSET ?",
-            (limit, offset),
-        ).fetchall()
-        return [dict(r) for r in rows]
-
     def session_exists(self, session_id: str) -> bool:
         conn = self._get_conn()
         row = conn.execute(
@@ -162,42 +145,6 @@ class Database:
             (timestamp, level, event, session_id, json.dumps(fields) if fields else None),
         )
         conn.commit()
-
-    def query_logs(
-        self,
-        session_id: str | None = None,
-        event: str | None = None,
-        level: str | None = None,
-        limit: int = 100,
-        offset: int = 0,
-    ) -> list[dict]:
-        clauses = []
-        params: list = []
-        if session_id:
-            clauses.append("session_id = ?")
-            params.append(session_id)
-        if event:
-            clauses.append("event = ?")
-            params.append(event)
-        if level:
-            clauses.append("level = ?")
-            params.append(level)
-
-        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
-        params.extend([limit, offset])
-
-        conn = self._get_conn()
-        rows = conn.execute(
-            f"SELECT * FROM logs{where} ORDER BY id DESC LIMIT ? OFFSET ?",
-            params,
-        ).fetchall()
-        results = []
-        for r in rows:
-            d = dict(r)
-            if d.get("fields"):
-                d["fields"] = json.loads(d["fields"])
-            results.append(d)
-        return results
 
     # ------------------------------------------------------------------
     # Rate limiting

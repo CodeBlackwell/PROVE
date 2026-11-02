@@ -89,7 +89,7 @@ Every LLM call, embedding, tool execution, and curation decision is logged with 
 
 - **Console** — Colored human-readable output 🎨
 - **File** — JSON lines at `logs/app.jsonl` 📁
-- **SQLite** — Queryable via `/api/logs` endpoint 🗄️
+- **SQLite** — `logs` table in `data/prove.db`, for `sqlite3` queries 🗄️
 
 ```bash
 LOG_LEVEL=DEBUG just dev  # verbose mode 🔊
