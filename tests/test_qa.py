@@ -597,10 +597,11 @@ def test_build_query_subgraph_merges():
 
 def test_find_gaps_claimed_with_alias():
     neo4j = MagicMock()
-    neo4j.get_skill_with_hierarchy.return_value = None
     session = MagicMock()
-    # claim check returns 1 (skill is claimed on resume)
-    session.run.return_value = _FakeResult([{"c": 1}])
+    # Only the claims query finds the skill, so it is claimed on the resume with no code behind it
+    session.run.side_effect = lambda query, **_: _FakeResult(
+        [{"skill": "Python"}] if "CLAIMS" in query else []
+    )
     neo4j.driver.session.return_value.__enter__ = MagicMock(return_value=session)
     neo4j.driver.session.return_value.__exit__ = MagicMock(return_value=False)
 

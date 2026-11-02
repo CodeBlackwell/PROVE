@@ -58,9 +58,6 @@ qa_agent = QAAgent(
 )
 jd_agent = JDMatchAgent(clients["neo4j_client"], clients["chat_client"], clients["embed_client"])
 
-# Warm system prompt at startup so the first request doesn't pay the cold-start cost
-_ = qa_agent.system_prompt
-
 logger.info(
     "app.startup", chat_provider=settings.chat_provider, embed_provider=settings.embed_provider
 )
@@ -69,6 +66,8 @@ logger.info(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.cleanup_rate_limits()
+    # Warm system prompt at startup so the first request doesn't pay the cold-start cost
+    _ = qa_agent.system_prompt
     yield
 
 
