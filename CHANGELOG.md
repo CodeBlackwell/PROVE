@@ -2,6 +2,15 @@
 
 All notable changes to PROVE are documented here.
 
+## [Unreleased]
+
+### Changed
+- **Rate limit keyed on the visitor's address** — uvicorn trusts `X-Forwarded-For` from Docker's private range (`FORWARDED_ALLOW_IPS` in `docker-compose.prod.yml`), so visitors behind Caddy no longer share the gateway's bucket; the browser fingerprint `fp` is ignored, since a client could pick it
+- **Crawler exemption limited to reads** — a bot User-Agent no longer skips the `/api/chat` and `/api/jd-match` limits
+
+### Removed
+- **`/api/sessions`, `/api/sessions/{id}`, `/api/logs`** — unauthenticated routes that exposed every visitor's questions, transcripts and log rows; the SQLite tables stay
+
 ## [0.10.0] — 2026-06-08
 
 ### Added
