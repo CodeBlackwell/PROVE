@@ -6,6 +6,8 @@ services:
     env_file: .env
     environment:
       NEO4J_URI: bolt://neo4j:7687
+      # Caddy replaces X-Forwarded-For with the visitor's address, so uvicorn can trust it from Docker's private range.
+      FORWARDED_ALLOW_IPS: 172.16.0.0/12
     volumes:
       - app_data:/app/data
       - app_logs:/app/logs
