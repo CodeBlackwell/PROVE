@@ -2,6 +2,7 @@
 
 import re
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -31,9 +32,15 @@ def db():
     fake.check_rate_limit.return_value = (True, 1)
     fake.session_exists.return_value = False
     fake.get_session_history.return_value = []
-    agent = MagicMock()
-    agent.answer_stream.side_effect = lambda *args, **kwargs: iter(["answer"])
-    with patch.object(appmod, "db", fake), patch.object(appmod, "qa_agent", agent):
+    qa = MagicMock()
+    qa.answer_stream.side_effect = lambda *args, **kwargs: iter(["answer"])
+    jd = MagicMock()
+    jd.match.return_value = SimpleNamespace(match_percentage=0, summary="", requirements=[])
+    with (
+        patch.object(appmod, "db", fake),
+        patch.object(appmod, "qa_agent", qa),
+        patch.object(appmod, "jd_agent", jd),
+    ):
         yield fake
 
 
@@ -52,3 +59,15 @@ def test_forged_forwarded_entries_do_not_buy_a_fresh_bucket(db):
 
 def test_a_client_chosen_fingerprint_does_not_change_the_bucket(db):
     assert chat_bucket(db, "203.0.113.9", fp="one") == chat_bucket(db, "203.0.113.9", fp="two")
+
+
+def test_a_crawler_user_agent_is_still_counted_on_chat(db):
+    db.check_rate_limit.return_value = (False, 0)
+    crawler = visitor("203.0.113.9", user_agent="Googlebot/2.1")
+    assert crawler.get("/api/chat", params={"q": "hi"}).status_code == 429
+
+
+def test_a_crawler_user_agent_is_still_counted_on_jd_match(db):
+    db.check_rate_limit.return_value = (False, 0)
+    crawler = visitor("203.0.113.9", user_agent="Googlebot/2.1")
+    assert crawler.post("/api/jd-match", data={"text": "x"}).status_code == 429

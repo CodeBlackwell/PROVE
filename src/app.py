@@ -120,14 +120,17 @@ def _is_local(request: Request) -> bool:
     return ip in ("127.0.0.1", "::1", "localhost")
 
 
-def _skip_limit(request: Request) -> bool:
-    """Skip rate limiting for localhost, known bots, or bypass token."""
+def _skip_limit(request: Request, bucket: str) -> bool:
+    """Skip rate limiting for localhost or the bypass token; crawlers skip only free reads."""
     if _is_local(request):
         return True
     # Bypass via secret header (for owner testing)
     if BYPASS_TOKEN and request.headers.get("x-bypass-token") == BYPASS_TOKEN:
         return True
-    # Exempt crawlers/bots so link previews always work
+    # Chat and JD match cost money, and any client can claim a crawler's User-Agent
+    if bucket != "read":
+        return False
+    # Exempt crawlers/bots from reads so link previews always work
     ua = (request.headers.get("user-agent") or "").lower()
     return any(bot in ua for bot in _BOT_UA_FRAGMENTS)
 
@@ -135,8 +138,8 @@ def _skip_limit(request: Request) -> bool:
 def _check_limit(
     visitor_id: str, bucket: str, request: Request | None = None
 ) -> JSONResponse | None:
-    """Return a 429 response if rate limited, else None. Skips for localhost, bots, and bypass token."""
-    if request and _skip_limit(request):
+    """Return a 429 response if rate limited, else None. See _skip_limit for who is exempt."""
+    if request and _skip_limit(request, bucket):
         return None
     max_req, window = RATE_LIMITS[bucket]
     allowed, remaining = db.check_rate_limit(visitor_id, bucket, max_req, window)
