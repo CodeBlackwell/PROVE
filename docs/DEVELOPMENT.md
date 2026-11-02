@@ -37,7 +37,7 @@ src/
 │   ├── chat.js                   # 💬 Chat SSE streaming + message rendering
 │   ├── graph.js                  # 📈 D3 treemap/bars + reference modals
 │   ├── jd.js                     # 📋 JD match modal + results UI
-│   ├── fingerprint.js            # 🔒 Lightweight browser fingerprinting for rate limits
+│   ├── fingerprint.js            # Browser fingerprint, sent as `fp` but ignored by the server
 │   └── style.css                 # 🎨 Glassmorphic design system
 ├── templates/
 │   └── index.html                # 🖥️ Single-page app shell

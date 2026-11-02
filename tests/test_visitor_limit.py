@@ -48,3 +48,7 @@ def test_visitors_behind_the_gateway_get_their_own_bucket(db):
 
 def test_forged_forwarded_entries_do_not_buy_a_fresh_bucket(db):
     assert chat_bucket(db, "127.0.0.1, 203.0.113.9") == chat_bucket(db, "203.0.113.9")
+
+
+def test_a_client_chosen_fingerprint_does_not_change_the_bucket(db):
+    assert chat_bucket(db, "203.0.113.9", fp="one") == chat_bucket(db, "203.0.113.9", fp="two")

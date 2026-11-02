@@ -86,11 +86,10 @@ RATE_LIMITS = {
 }
 
 
-def _visitor_id(request: Request, fp: str | None = None) -> str:
-    """Build a composite visitor ID from IP + browser fingerprint."""
+def _visitor_id(request: Request) -> str:
+    """Hash the visitor's address so the rate limit table never stores it raw."""
     ip = request.client.host if request.client else "unknown"
-    raw = f"{ip}:{fp or 'none'}"
-    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+    return hashlib.sha256(ip.encode()).hexdigest()[:16]
 
 
 _BOT_UA_FRAGMENTS = (
@@ -185,8 +184,8 @@ def index(request: Request):
 
 
 @app.get("/api/chat")
-def chat(request: Request, q: str, session_id: str | None = None, fp: str | None = None):
-    vid = _visitor_id(request, fp)
+def chat(request: Request, q: str, session_id: str | None = None):
+    vid = _visitor_id(request)
     blocked = _check_limit(vid, "chat", request)
     if blocked:
         return blocked
@@ -579,10 +578,8 @@ _MAX_TEXT_CHARS = 50_000  # ~12 pages of text
 
 
 @app.post("/api/jd-match")
-async def jd_match(
-    request: Request, file: UploadFile = File(None), text: str = Form(None), fp: str = Form(None)
-):
-    vid = _visitor_id(request, fp)
+async def jd_match(request: Request, file: UploadFile = File(None), text: str = Form(None)):
+    vid = _visitor_id(request)
     blocked = _check_limit(vid, "chat", request)
     if blocked:
         return blocked

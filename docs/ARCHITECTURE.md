@@ -89,4 +89,4 @@ Responses stream via Server-Sent Events with four event types:
 
 The frontend renders a glassmorphic UI with two visualization modes — **Treemap** 🟩 (nested rectangles: Domain > Category > Skill, tile size = evidence count) and **Bars** 📊 (ranked skill list). The graph accumulates across queries within a session. Clicking any demonstrated skill opens a reference modal with all code evidence and GitHub links.
 
-🛡️ Rate limiting protects API costs: 20 chat requests/hour and 60 reads/hour per visitor, identified by IP + lightweight browser fingerprint.
+🛡️ Rate limiting protects API costs: 20 chat requests/hour and 60 reads/hour per visitor address.

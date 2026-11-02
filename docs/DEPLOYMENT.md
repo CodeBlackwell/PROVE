@@ -46,7 +46,7 @@ curl -fsS https://prove.codeblackwell.ai/healthz
 ## 🛡️ Security
 
 - 🔐 Caddy auto-provisions HTTPS via Let's Encrypt and adds security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`)
-- ⏱️ Rate limits: 20 chat requests/hour, 60 reads/hour per visitor (IP + browser fingerprint)
+- ⏱️ Rate limits: 20 chat requests/hour, 60 reads/hour per visitor address
 - 🏠 Localhost is exempt from rate limits for development
 - 🙈 Private repo code is redacted by default (`SHOW_PRIVATE_CODE=false`) — context descriptions and GitHub links still shown, raw code withheld
 - 🤫 Secrets live in `.env` on the server (never committed)
